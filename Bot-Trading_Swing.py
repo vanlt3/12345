@@ -17,6 +17,18 @@ if hasattr(sys.stderr, 'reconfigure'):
 # Set environment variables for UTF-8
 os.environ['PYTHONIOENCODING'] = 'utf-8'
 
+# Fix environment variable issues
+if 'ENV' in os.environ and os.environ['ENV'] == '/root/.bashrc':
+    del os.environ['ENV']
+    print("🔧 [Environment] Fixed invalid ENV variable")
+
+# Set proper environment variables
+os.environ['PYTHONPATH'] = '/workspace'
+os.environ['PYTHONUNBUFFERED'] = '1'
+os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
+os.environ['LANG'] = 'en_US.UTF-8'
+os.environ['LC_ALL'] = 'en_US.UTF-8'
+
 print("🔧 [Encoding] UTF-8 encoding configured successfully")
 
 # ==================================================
@@ -41,6 +53,13 @@ warnings.filterwarnings('ignore', category=UserWarning, module='torch')
 warnings.filterwarnings('ignore', category=UserWarning, module='jax')
 warnings.filterwarnings('ignore', message='.*CUDA.*')
 warnings.filterwarnings('ignore', message='.*GPU.*')
+# Additional CUDA/TensorFlow fixes
+warnings.filterwarnings('ignore', message='.*cuFFT factory.*')
+warnings.filterwarnings('ignore', message='.*cuDNN factory.*')
+warnings.filterwarnings('ignore', message='.*cuBLAS factory.*')
+warnings.filterwarnings('ignore', message='.*computation placer already registered.*')
+warnings.filterwarnings('ignore', message='.*Unable to register.*factory.*')
+warnings.filterwarnings('ignore', message='.*Gym has been unmaintained.*')
 
 print("🔧 [Runtime] CPU-first execution and warning suppression configured")
 
@@ -7400,6 +7419,103 @@ class NewsEconomicManager:
         except Exception as e:
             print(f" [API Test] Error testing API connectivity: {e}")
     
+    def get_latest_news(self, symbol: str = None, limit: int = 10):
+        """
+        Get latest news for a specific symbol or all symbols
+        
+        Args:
+            symbol: Symbol to get news for (optional)
+            limit: Maximum number of news items to return
+            
+        Returns:
+            List of news dictionaries
+        """
+        try:
+            if not hasattr(self, 'news_providers') or not self.news_providers:
+                print("⚠️ No news providers available")
+                return []
+            
+            all_news = []
+            
+            for provider_name, provider in self.news_providers.items():
+                try:
+                    if hasattr(provider, 'get_latest_news'):
+                        news = provider.get_latest_news(symbol=symbol, limit=limit)
+                        if news:
+                            all_news.extend(news)
+                    elif hasattr(provider, 'fetch_news'):
+                        news = provider.fetch_news(symbol=symbol, limit=limit)
+                        if news:
+                            all_news.extend(news)
+                except Exception as e:
+                    print(f"⚠️ Error fetching news from {provider_name}: {e}")
+                    continue
+            
+            # Sort by timestamp if available
+            if all_news:
+                try:
+                    all_news.sort(key=lambda x: x.get('timestamp', 0), reverse=True)
+                except:
+                    pass
+            
+            return all_news[:limit]
+            
+        except Exception as e:
+            print(f"❌ Error in get_latest_news: {e}")
+            return []
+    
+    def get_news_sentiment(self, symbol: str, news_data: List[Dict[str, Any]]) -> Dict[str, float]:
+        """
+        Get sentiment analysis for news data
+        
+        Args:
+            symbol: Symbol to analyze
+            news_data: List of news items
+            
+        Returns:
+            Dictionary with sentiment scores
+        """
+        try:
+            if not news_data:
+                return {'sentiment': 0.0, 'confidence': 0.0}
+            
+            if not hasattr(self, 'llm_analyzer') or not self.llm_analyzer:
+                print("⚠️ No LLM analyzer available")
+                return {'sentiment': 0.0, 'confidence': 0.0}
+            
+            # Analyze sentiment using LLM
+            sentiment_scores = []
+            confidences = []
+            
+            for news_item in news_data:
+                try:
+                    if hasattr(self.llm_analyzer, 'analyze_sentiment'):
+                        result = self.llm_analyzer.analyze_sentiment(
+                            text=news_item.get('title', '') + ' ' + news_item.get('description', ''),
+                            symbol=symbol
+                        )
+                        if result:
+                            sentiment_scores.append(result.get('sentiment', 0.0))
+                            confidences.append(result.get('confidence', 0.0))
+                except Exception as e:
+                    print(f"⚠️ Error analyzing sentiment: {e}")
+                    continue
+            
+            if sentiment_scores:
+                avg_sentiment = sum(sentiment_scores) / len(sentiment_scores)
+                avg_confidence = sum(confidences) / len(confidences)
+                return {
+                    'sentiment': avg_sentiment,
+                    'confidence': avg_confidence,
+                    'count': len(sentiment_scores)
+                }
+            else:
+                return {'sentiment': 0.0, 'confidence': 0.0, 'count': 0}
+                
+        except Exception as e:
+            print(f"❌ Error in get_news_sentiment: {e}")
+            return {'sentiment': 0.0, 'confidence': 0.0}
+
     def get_economic_calendar(self, init_date=None, end_date=None):
         """
         Lấy lịch kinh tế từ Trading Economics.
@@ -17756,6 +17872,32 @@ class EnhancedTradingBot:
         return model_data
 
     # This ifix helper function, no changes needed
+    def _get_fallback_signal(self, symbol: str, df_features) -> Tuple[str, float, None]:
+        """
+        Get fallback signal when models are not available
+        """
+        try:
+            # Simple technical analysis fallback
+            if len(df_features) < 20:
+                return "HOLD", 0.5, None
+            
+            # Calculate simple moving averages
+            sma_20 = df_features['close'].rolling(20).mean().iloc[-1]
+            sma_50 = df_features['close'].rolling(50).mean().iloc[-1]
+            current_price = df_features['close'].iloc[-1]
+            
+            # Simple signal logic
+            if current_price > sma_20 > sma_50:
+                return "BUY", 0.6, None
+            elif current_price < sma_20 < sma_50:
+                return "SELL", 0.6, None
+            else:
+                return "HOLD", 0.5, None
+                
+        except Exception as e:
+            logging.warning(f"Fallback signal failed for {symbol}: {e}")
+            return "HOLD", 0.5, None
+
     def get_enhanced_signal(self, symbol, for_open_position_check=False, df_features=None):
         """
         Lấy tín hiệu và độ tin cậy from model Ensemble suitable with tempty thi thường.
@@ -17787,15 +17929,15 @@ class EnhancedTradingBot:
             if model_data is None:
                 logging.warning(f"get_enhanced_signal: No suitable model found for {symbol} (Regime: {current_regime})")
                 logging.info(f"Available models for {symbol}: trending={symbol in self.trending_models}, ranging={symbol in self.ranging_models}")
-                # Return default HOLD signal instead of None
-                return "HOLD", 0.5, None
+                # Use fallback signal instead of returning None
+                return self._get_fallback_signal(symbol, df_features)
 
             model = model_data.get("ensemble")
             feature_columns = model_data.get("feature_columns")
 
             if not model or not feature_columns:
                 logging.warning(f"get_enhanced_signal: Model Or feature_columns not hợp lệ cho {symbol}")
-                return None, 0.0, None
+                return self._get_fallback_signal(symbol, df_features)
 
             # Pipeline clean data more (original logic old of b n)
             df_features.replace([np.inf, -np.inf], np.nan, inplace=True)
