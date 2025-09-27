@@ -6,6 +6,7 @@ print("🚀 [Bot] Starting imports...")
 # ==================================================
 import sys
 import os
+import warnings
 
 # Ensure UTF-8 encoding for stdout and stderr
 if hasattr(sys.stdout, 'reconfigure'):
@@ -51,7 +52,6 @@ import re
 import sqlite3
 import time
 import threading
-import warnings
 import argparse
 import hashlib
 import signal
