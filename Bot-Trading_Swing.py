@@ -6992,7 +6992,7 @@ class NewsProvider(ABC):
             "published_at": published_at
         }
 
-class FinnhubProvider(NewsProvider):
+class FinnhubNewsProvider(NewsProvider):
     async def fetch_news(self, session, symbol: str, stock_map: dict):
         if not self.enabled: return []
         stock_symbol = stock_map.get(symbol, symbol)
@@ -7318,7 +7318,7 @@ class NewsEconomicManager:
         
         # Initialize providers
         providers = [
-            ("Finnhub", FinnhubProvider(finnhub_key)),
+            ("Finnhub", FinnhubNewsProvider(finnhub_key)),
             ("Marketaux", MarketauxProvider(marketaux_key)),
             ("NewsAPI.org", NewsApiOrgProvider(newsapi_key)),
             ("EODHD", EODHDProvider(eodhd_key))
