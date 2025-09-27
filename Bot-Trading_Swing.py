@@ -461,8 +461,8 @@ API_CONFIGS: Dict[str, APIConfig] = {
 # Trading constants
 class TradingConstants:
     """Trading-related constants"""
-    MIN_CONFIDENCE_THRESHOLD = 0.5
-    MAX_CONFIDENCE_THRESHOLD = 0.95
+    MIN_CONFIDENCE_THRESHOLD = 0.25
+    MAX_CONFIDENCE_THRESHOLD = 0.75
     CONFIDENCE_SMOOTHING_FACTOR = 0.1
     TRAILING_STOP_MULTIPLIER = 0.5
     POSITION_SIZE_MULTIPLIER = 1.0
@@ -3517,7 +3517,7 @@ ML_CONFIG = {
     "MIN_ACCURACY": 0.40,  # Giảm từ 0.6 để linh hoạt hơn
     "MAX_STD_F1": 0.20,    # Tăng từ 0.1 để linh hoạt hơn
     "CV_N_SPLITS": 5,      # Gi m t10 dtang t c
-    "CONFIDENCE_THRESHOLD": 0.6,  # Tang t0.5 dch t chhon
+    "CONFIDENCE_THRESHOLD": 0.35,  # Giảm từ 0.6 xuống 0.35 để tăng cơ hội trade
     "MIN_CONFIDENCE_TRADE": 0.50,  # Gi m t0.55 dlinh ho t hon
     "MIN_SAMPLES_FOR_TRAINING": 100,  # Gi m t300 dlinh ho t hon
     "MAX_CORRELATION_THRESHOLD": 0.85,  # Gi m t0.9 dch t chhon
@@ -7612,8 +7612,11 @@ class NewsEconomicManager:
             except Exception as api_error:
                 error_msg = str(api_error)
                 if "403" in error_msg or "Forbidden" in error_msg:
-                    logging.warning("⚠️ Trading Economic API access forbidden (403) - API key may be invalid or rate limited")
-                    logging.warning("⚠️ Bot will continue without Trading Economics data")
+                    # Only log once per session to avoid spam
+                    if not hasattr(self, '_te_403_logged'):
+                        logging.warning("⚠️ Trading Economic API access forbidden (403) - API key may be invalid or rate limited")
+                        logging.warning("⚠️ Bot will continue without Trading Economics data")
+                        self._te_403_logged = True
                     # Disable Trading Economics for this session to avoid repeated errors
                     try:
                         globals()['TRADING_ECONOMICS_AVAILABLE'] = False
@@ -7624,8 +7627,11 @@ class NewsEconomicManager:
                         pass
                     return []
                 elif "401" in error_msg or "Unauthorized" in error_msg:
-                    logging.warning("⚠️ Trading Economics API unauthorized (401) - API key may be invalid")
-                    logging.warning("⚠️ Bot will continue without Trading Economics data")
+                    # Only log once per session to avoid spam
+                    if not hasattr(self, '_te_401_logged'):
+                        logging.warning("⚠️ Trading Economics API unauthorized (401) - API key may be invalid")
+                        logging.warning("⚠️ Bot will continue without Trading Economics data")
+                        self._te_401_logged = True
                     try:
                         globals()['TRADING_ECONOMICS_AVAILABLE'] = False
                     except:
@@ -12880,21 +12886,21 @@ class RLPerformanceTracker:
     def get_adaptive_threshold(self, symbol):
         """Get adaptive confidence threshold based on performance"""
         if symbol not in self.symbol_performance:
-            return 0.52  # Default threshold
+            return 0.35  # Lower default threshold for better trading opportunities
             
         perf = self.symbol_performance[symbol]
         if perf['total_actions'] < 10:
-            return 0.52  # Not enough data
+            return 0.35  # Lower threshold for insufficient data
             
         success_rate = perf['successful_actions'] / perf['total_actions']
         
-        # Adjust threshold based on success rate
+        # Adjust threshold based on success rate - more aggressive thresholds
         if success_rate > 0.7:
-            return 0.48  # Lower threshold for high-performing symbols
+            return 0.25  # Much lower threshold for high-performing symbols
         elif success_rate < 0.4:
-            return 0.58  # Higher threshold for low-performing symbols
+            return 0.45  # Higher threshold for low-performing symbols
         else:
-            return 0.52  # Default threshold
+            return 0.35  # Lower default threshold
 
 class DynamicActionSpace:
     """Dynamiofction space based on market conditions"""
@@ -17568,7 +17574,7 @@ class EnhancedTradingBot:
             print("-" * 40)
             print(f"Processing models for symbol: {symbol}")
 
-            # <<< BU C 3: TCH H P Function Check GIGIAO dH >>>
+            # <<< BU C 3: TCH H P Function Check GIGIAO dH >>> 
             # Check market status and skip if market is closed (except for crypto)
             if not is_market_open(symbol):
                 # Debug: Log th i gian v ngy dhi u t i sao thtru ng used
@@ -17952,7 +17958,7 @@ class EnhancedTradingBot:
     # This ifix helper function, no changes needed
     def _get_fallback_signal(self, symbol: str, df_features) -> Tuple[str, float, None]:
         """
-        Get fallback signal when models are not available
+        Get fallback signal when models are not available - Enhanced version
         """
         try:
             # Simple technical analysis fallback
@@ -17964,11 +17970,22 @@ class EnhancedTradingBot:
             sma_50 = df_features['close'].rolling(50).mean().iloc[-1]
             current_price = df_features['close'].iloc[-1]
             
-            # Simple signal logic
-            if current_price > sma_20 > sma_50:
-                return "BUY", 0.6, None
-            elif current_price < sma_20 < sma_50:
-                return "SELL", 0.6, None
+            # Calculate RSI for additional confirmation
+            delta = df_features['close'].diff()
+            gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+            loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+            rs = gain / loss
+            rsi = 100 - (100 / (1 + rs)).iloc[-1]
+            
+            # Enhanced signal logic with higher confidence
+            if current_price > sma_20 > sma_50 and rsi < 70:
+                return "BUY", 0.65, None  # Increased confidence
+            elif current_price < sma_20 < sma_50 and rsi > 30:
+                return "SELL", 0.65, None  # Increased confidence
+            elif rsi > 70:
+                return "SELL", 0.6, None  # Overbought
+            elif rsi < 30:
+                return "BUY", 0.6, None  # Oversold
             else:
                 return "HOLD", 0.5, None
                 
@@ -18007,8 +18024,18 @@ class EnhancedTradingBot:
             if model_data is None:
                 logging.warning(f"get_enhanced_signal: No suitable model found for {symbol} (Regime: {current_regime})")
                 logging.info(f"Available models for {symbol}: trending={symbol in self.trending_models}, ranging={symbol in self.ranging_models}")
-                # Use fallback signal instead of returning None
-                return self._get_fallback_signal(symbol, df_features)
+                
+                # Try to use alternative model if available
+                if current_regime != 0 and symbol in self.ranging_models:
+                    logging.info(f"Using ranging model as fallback for {symbol}")
+                    model_data = self.ranging_models.get(symbol)
+                elif current_regime == 0 and symbol in self.trending_models:
+                    logging.info(f"Using trending model as fallback for {symbol}")
+                    model_data = self.trending_models.get(symbol)
+                
+                if model_data is None:
+                    # Use fallback signal instead of returning None
+                    return self._get_fallback_signal(symbol, df_features)
 
             model = model_data.get("ensemble")
             feature_columns = model_data.get("feature_columns")
@@ -18141,9 +18168,27 @@ class EnhancedTradingBot:
             if live_data_cache is None:
                 live_data_cache = {}
                 
-            # Fetch data m t l n cho t t cactive symbols (OPTIMIZED)
+            # Fetch data m t l n cho t t cactive symbols (OPTIMIZED with caching)
             print(f"   [Data Cache] Fetching data for {len(self.active_symbols)} symbols...")
             print(f"   [Data Cache] Active symbols: {list(self.active_symbols)}")
+            
+            # Check cache first to avoid duplicate fetching
+            symbols_to_fetch = []
+            for symbol in self.active_symbols:
+                cache_key = f"{symbol}_data_cache"
+                if hasattr(self, '_data_cache') and cache_key in self._data_cache:
+                    cached_data, cache_time = self._data_cache[cache_key]
+                    # Use cached data if less than 5 minutes old
+                    if (datetime.now() - cache_time).seconds < 300:
+                        live_data_cache[symbol] = cached_data
+                        print(f"   [Data Cache] {symbol}: Using cached data ({len(cached_data)} candles)")
+                        continue
+                symbols_to_fetch.append(symbol)
+            
+            if not symbols_to_fetch:
+                print(f"   [Data Cache] All data from cache, no fetching needed")
+            else:
+                print(f"   [Data Cache] Fetching fresh data for: {symbols_to_fetch}")
             
             # T i uu ha: Fetch song song thay v tu n t 
             async def fetch_symbol_data(symbol):
@@ -18151,6 +18196,10 @@ class EnhancedTradingBot:
                     df_features = self.data_manager.create_enhanced_features(symbol)
                     if df_features is not None and len(df_features) >= 100:
                         print(f"   [Data Cache] {symbol}: {len(df_features)} candles")
+                        # Cache the data
+                        if not hasattr(self, '_data_cache'):
+                            self._data_cache = {}
+                        self._data_cache[f"{symbol}_data_cache"] = (df_features, datetime.now())
                         return symbol, df_features
                     else:
                         print(f"   [Data Cache]  {symbol}: data khng d ({len(df_features) if df_features is not None else 0} candles)")
@@ -18160,16 +18209,17 @@ class EnhancedTradingBot:
                     return symbol, None
             
             # Fetch song song t t csymbols
-            tasks = [fetch_symbol_data(symbol) for symbol in self.active_symbols]
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            
-            for result in results:
-                if isinstance(result, Exception):
-                    print(f"   [Data Cache]  Exception in fetch: {result}")
-                    continue
-                symbol, df_features = result
-                if df_features is not None:
-                    live_data_cache[symbol] = df_features
+            if symbols_to_fetch:
+                tasks = [fetch_symbol_data(symbol) for symbol in symbols_to_fetch]
+                results = await asyncio.gather(*tasks, return_exceptions=True)
+                
+                for result in results:
+                    if isinstance(result, Exception):
+                        print(f"   [Data Cache]  Exception in fetch: {result}")
+                        continue
+                    symbol, df_features = result
+                    if df_features is not None:
+                        live_data_cache[symbol] = df_features
             else:
                 print(f"   [Data Cache] Using cached data for {len(live_data_cache)} symbols")
             
@@ -18403,7 +18453,7 @@ class EnhancedTradingBot:
             logger.debug(f" [RL Strategy] Expected observation shape: {expected_shape}")
             logger.debug(f" [RL Strategy] currentobservation shape: {final_live_observation.shape}")
 
-            # Fix observation shape mismatch with proper feature alignment
+            # Fix observation shape mismatch with intelligent feature alignment
             if final_live_observation.shape != expected_shape:
                 current_size = final_live_observation.shape[0]
                 expected_size = expected_shape[0]
@@ -18419,17 +18469,17 @@ class EnhancedTradingBot:
                     logger.info(f"[RL Strategy] Successfully padded observation to {final_live_observation.shape}")
                     logging.info(f"Successfully padded observation to {final_live_observation.shape}")
                 else:
-                    # Truncate to match expected size - preserve most important features
-                    # Keep first part (symbol features) and last part (global states)
-                    if expected_size >= 4:  # Ensure we have space for global states
-                        symbol_features = final_live_observation[:expected_size-4]
-                        global_states = final_live_observation[-4:]
-                        final_live_observation = np.concatenate([symbol_features, global_states]).astype(np.float32)
-                    else:
-                        final_live_observation = final_live_observation[:expected_size]
+                    # Intelligent truncation: preserve most important features
+                    # Calculate feature importance based on variance and non-zero values
+                    feature_importance = np.abs(final_live_observation)
+                    feature_importance = feature_importance / (np.sum(feature_importance) + 1e-8)
                     
-                    logger.info(f"[RL Strategy] Successfully truncated observation to {final_live_observation.shape}")
-                    logging.info(f"Successfully truncated observation to {final_live_observation.shape}")
+                    # Select top features by importance
+                    top_indices = np.argsort(feature_importance)[-expected_size:]
+                    final_live_observation = final_live_observation[top_indices].astype(np.float32)
+                    
+                    logger.info(f"[RL Strategy] Successfully truncated observation to {final_live_observation.shape} using intelligent feature selection")
+                    logging.info(f"Successfully truncated observation to {final_live_observation.shape} using intelligent feature selection")
 
             final_live_observation = np.nan_to_num(final_live_observation)
             logger.debug(f" [RL Strategy] Final observation shape: {final_live_observation.shape}")
@@ -18608,7 +18658,7 @@ class EnhancedTradingBot:
                 
                 # processing symbols c confidence cao nhung RL action = HOLD (fallback analysis)
                 elif action_code == 0 and symbol_to_act in self.active_symbols and symbol_to_act not in self.open_positions:
-                    if confidence > 0.52:  # Confidence threshold cho fallback analysis
+                    if confidence > 0.35:  # Giảm confidence threshold cho fallback analysis
                         print(f"   [Debug] {symbol_to_act}: RL=HOLD nhung confidence cao, starting Master Agent processing")
                         logger.info(f" [Master Agent] Starting analysis for {symbol_to_act}")
                         print(f"   [Master Agent] Starting analysis for {symbol_to_act}")
@@ -18642,7 +18692,7 @@ class EnhancedTradingBot:
                 logging.info(f"[RL Fallback] Check {len(symbols_not_in_rl)} symbols khng trong RL Agent: {list(symbols_not_in_rl)}")
                 print(f"   [RL Fallback] Check {len(symbols_not_in_rl)} symbols khng trong RL Agent: {list(symbols_not_in_rl)}")
                 for symbol in symbols_not_in_rl:
-                    # Check market status before processing
+                    # Check market status before processing - Skip closed markets entirely
                     if not is_market_open(symbol):
                         print(f"   [RL Fallback] {symbol}: Market closed, skipping fallback analysis")
                         continue
@@ -18651,6 +18701,20 @@ class EnhancedTradingBot:
                         print(f"   [RL Fallback] Fetching data for {symbol}...")
                         # Using Ensemble strategy for these symbols
                         df_features = self.data_manager.create_enhanced_features(symbol)
+                        if df_features is not None and len(df_features) >= 100:
+                            signal, confidence, _ = self.get_enhanced_signal(symbol, df_features=df_features)
+                            if signal and confidence > ML_CONFIG["MIN_CONFIDENCE_TRADE"] and symbol not in self.open_positions:
+                                print(f"   [RL Fallback] {symbol}: RL=HOLD, Ensemble={signal} ({confidence:.2%})")
+                                tasks.append(self.handle_position_logic(symbol, signal, confidence))
+                            elif signal and confidence > ML_CONFIG["MIN_CONFIDENCE_TRADE"] and symbol in self.open_positions:
+                                print(f"   [RL Fallback] {symbol}: Skipping - Already has open position")
+                            else:
+                                print(f"   [RL Fallback] {symbol}: Low confidence ({confidence:.2%}), skipping")
+                        else:
+                            print(f"   [RL Fallback] {symbol}: Insufficient data ({len(df_features) if df_features is not None else 0} candles)")
+                    except Exception as e:
+                        print(f"   [RL Fallback] Error processing {symbol}: {e}")
+                        logger.error(f"[RL Fallback] Error processing {symbol}: {e}")
                         if df_features is not None and len(df_features) >= 100:
                             # Add Master Agent analysis cho symbol not trong RL
                             print(f"   [Debug] {symbol}: Symbol khng trong RL, starting Master Agent processing")
@@ -18686,6 +18750,21 @@ class EnhancedTradingBot:
                         continue
             else:
                 print(f"   [RL Strategy] All active symbols are in RL Agent")
+
+            # Ensure all active symbols are processed consistently
+            processed_symbols = set()
+            for task in tasks:
+                if hasattr(task, 'symbol'):
+                    processed_symbols.add(task.symbol)
+            
+            # Log summary of processing
+            logger.info(f"[RL Strategy] Processed {len(processed_symbols)} symbols: {list(processed_symbols)}")
+            logger.info(f"[RL Strategy] Active symbols: {list(self.active_symbols)}")
+            logger.info(f"[RL Strategy] Symbols in RL Agent: {symbols_agent_knows}")
+            
+            if len(processed_symbols) != len(self.active_symbols):
+                unprocessed = self.active_symbols - processed_symbols
+                logger.warning(f"[RL Strategy] {len(unprocessed)} symbols not processed: {list(unprocessed)}")
 
             if tasks:
                 logger.info(f"[RL Strategy] Executing {len(tasks)} trading signals...")
