@@ -362,7 +362,7 @@ class SymbolConfig:
 API_CONFIGS: Dict[str, APIConfig] = {
     'FINHUB': APIConfig(
         api_key='d1b3ichr01qjhvtsbj8g',
-        base_url='https://finhub.io/api/v1',
+        base_url='https://finnhub.io/api/v1',
         rate_limit=60
     ),
     'MARKETAUX': APIConfig(
@@ -1174,12 +1174,12 @@ class APIManager:
             return None
     
     # ==============================================================================
-    # FINHUB API METHODS
+    # FINNHUB API METHODS
     # ==============================================================================
     
     def get_finhub_quote(self, symbol: str) -> Optional[dict]:
         """
-        Get real-time price from Finhub with improved error handling
+        Get real-time price from Finnhub with improved error handling
         
         Args:
             symbol: Trading symbol to get quote for
@@ -1189,11 +1189,11 @@ class APIManager:
         """
         try:
             if not symbol or not isinstance(symbol, str):
-                self.logger.error(f"❌ [Finhub] Invalid symbol: {symbol}")
+                self.logger.error(f"❌ [Finnhub] Invalid symbol: {symbol}")
                 return None
                 
             if not self._check_rate_limit('FINHUB'):
-                self.logger.warning("⚠️ [Finhub] Rate limit exceeded, skipping request")
+                self.logger.warning("⚠️ [Finnhub] Rate limit exceeded, skipping request")
                 return None
             
             url = f"{API_ENDPOINTS['FINHUB']['base_url']}{API_ENDPOINTS['FINHUB']['quote']}"
@@ -1202,23 +1202,23 @@ class APIManager:
                 'token': API_KEYS['FINHUB']
             }
             
-            self.logger.debug(f"📊 [Finhub] Getting quote for {symbol}")
+            self.logger.debug(f"📊 [Finnhub] Getting quote for {symbol}")
             result = self._make_request(url, params)
             
             if result:
-                self.logger.debug(f"✅ [Finhub] Quote retrieved for {symbol}")
+                self.logger.debug(f"✅ [Finnhub] Quote retrieved for {symbol}")
             else:
-                self.logger.warning(f"❌ [Finhub] Failed to get quote for {symbol}")
+                self.logger.warning(f"❌ [Finnhub] Failed to get quote for {symbol}")
                 
             return result
             
         except Exception as e:
-            self.logger.error(f"❌ [Finhub] Error getting quote for {symbol}: {e}")
+            self.logger.error(f"❌ [Finnhub] Error getting quote for {symbol}: {e}")
             return None
     
     def get_finhub_news(self, symbol: str, from_date: Optional[str] = None, to_date: Optional[str] = None) -> Optional[dict]:
         """
-        Get news from Finhub with improved error handling
+        Get news from Finnhub with improved error handling
         
         Args:
             symbol: Trading symbol to get news for
@@ -1230,11 +1230,11 @@ class APIManager:
         """
         try:
             if not symbol or not isinstance(symbol, str):
-                self.logger.error(f"❌ [Finhub] Invalid symbol: {symbol}")
+                self.logger.error(f"❌ [Finnhub] Invalid symbol: {symbol}")
                 return None
                 
             if not self._check_rate_limit('FINHUB'):
-                self.logger.warning("⚠️ [Finhub] Rate limit exceeded, skipping request")
+                self.logger.warning("⚠️ [Finnhub] Rate limit exceeded, skipping request")
                 return None
             
             url = f"{API_ENDPOINTS['FINHUB']['base_url']}{API_ENDPOINTS['FINHUB']['news']}"
@@ -1248,23 +1248,23 @@ class APIManager:
             if to_date:
                 params['to'] = to_date
             
-            self.logger.debug(f"📰 [Finhub] Getting news for {symbol}")
+            self.logger.debug(f"📰 [Finnhub] Getting news for {symbol}")
             result = self._make_request(url, params)
             
             if result:
-                self.logger.debug(f"✅ [Finhub] News retrieved for {symbol}")
+                self.logger.debug(f"✅ [Finnhub] News retrieved for {symbol}")
             else:
-                self.logger.warning(f"❌ [Finhub] Failed to get news for {symbol}")
+                self.logger.warning(f"❌ [Finnhub] Failed to get news for {symbol}")
                 
             return result
             
         except Exception as e:
-            self.logger.error(f"❌ [Finhub] Error getting news for {symbol}: {e}")
+            self.logger.error(f"❌ [Finnhub] Error getting news for {symbol}: {e}")
             return None
     
     def get_finhub_sentiment(self, symbol: str) -> Optional[dict]:
         """
-        Get sentiment from Finhub with improved error handling
+        Get sentiment from Finnhub with improved error handling
         
         Args:
             symbol: Trading symbol to get sentiment for
@@ -1274,11 +1274,11 @@ class APIManager:
         """
         try:
             if not symbol or not isinstance(symbol, str):
-                self.logger.error(f"❌ [Finhub] Invalid symbol: {symbol}")
+                self.logger.error(f"❌ [Finnhub] Invalid symbol: {symbol}")
                 return None
                 
             if not self._check_rate_limit('FINHUB'):
-                self.logger.warning("⚠️ [Finhub] Rate limit exceeded, skipping request")
+                self.logger.warning("⚠️ [Finnhub] Rate limit exceeded, skipping request")
                 return None
             
             url = f"{API_ENDPOINTS['FINHUB']['base_url']}{API_ENDPOINTS['FINHUB']['sentiment']}"
@@ -1287,18 +1287,18 @@ class APIManager:
                 'token': API_KEYS['FINHUB']
             }
             
-            self.logger.debug(f"💭 [Finhub] Getting sentiment for {symbol}")
+            self.logger.debug(f"💭 [Finnhub] Getting sentiment for {symbol}")
             result = self._make_request(url, params)
             
             if result:
-                self.logger.debug(f"✅ [Finhub] Sentiment retrieved for {symbol}")
+                self.logger.debug(f"✅ [Finnhub] Sentiment retrieved for {symbol}")
             else:
-                self.logger.warning(f"❌ [Finhub] Failed to get sentiment for {symbol}")
+                self.logger.warning(f"❌ [Finnhub] Failed to get sentiment for {symbol}")
                 
             return result
             
         except Exception as e:
-            self.logger.error(f"❌ [Finhub] Error getting sentiment for {symbol}: {e}")
+            self.logger.error(f"❌ [Finnhub] Error getting sentiment for {symbol}: {e}")
             return None
     
     # ==============================================================================
@@ -1444,7 +1444,7 @@ api_manager = APIManager()
 
 # Third-party imports
 import aiohttp
-# eod imporfrom modeloved to optional section
+# eod import moved to optional section
 import google.generativeai as genai
 import gymnasium as gym
 import lightgbm as lgb
@@ -1499,7 +1499,7 @@ from ta.trend import ADXIndicator, EMAIndicator, MACD
 from ta.volatility import AverageTrueRange, BollingerBands
 
 # Sentiment Analysis
-# NewsApiClient imporfrom modeloved to optional section
+# NewsApiClient import moved to optional section
 from textblob import TextBlob
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
@@ -2049,7 +2049,7 @@ def enhanced_is_market_open(symbol: str, current_time: Optional[datetime] = None
 
 # === ENHANCED DATA FRESHNESS MONITOR ===
 class DataFreshnessMonitor:
-    """Enhanced data freshness monitoring with root cause analysifixnd auto-recovery"""
+    """Enhanced data freshness monitoring with root cause analysis and auto-recovery"""
 
     def __init__(self):
         self.freshness_thresholds = {
@@ -2280,7 +2280,7 @@ def process_symbol_cycle(symbol: str):
     primary_tf = PRIMARY_TIMEFRAME_BY_SYMBOL.get(symbol, "H1")
     timeframes_to_use = TIMEFRAME_SET_BY_PRIMARY.get(primary_tf, ["H4", "D1", "W1"])
 
-    # 1) Gefrom modelulti-timeframe data using data manager
+    # 1) Get multi-timeframe data using data manager
     data_manager = EnhancedDataManager()
     multi_tf_data = data_manager.fetch_multi_timeframe_data(symbol, 5000, timeframes_to_use)
 
@@ -2570,9 +2570,9 @@ def validate_symbol(symbol: str) -> bool:
 
 
 # Replace old drift configuration with these lines
-# === DRIFfrom modelANAGEMENT CONFIG ===
+# === DRIFT MANAGEMENT CONFIG ===
 DRIFT_SAMPLE_SIZE = 8          # Number of random symbols to check in each cycle
-DRIFT_WARNING_INCREMENT = 1    # Pointadded when drift is detected
+DRIFT_WARNING_INCREMENT = 1    # Point added when drift is detected
 DRIFT_SCORE_DECAY = 1          # Points subtracted (cooling down) after each check cycle
 DRIFT_SCORE_THRESHOLD = 3      # Score threshold to trigger retraining
 # ==============================
@@ -3413,7 +3413,7 @@ AUTO_RETRAIN_CONFIG = {
         "IMMEDIATE_RETRAIN": True,  # Retrain immediately when triggered
         "RETRAIN_ALL_SYMBOLS": False,  # Only retrain affected symbols
         "FORCE_FULL_RETRAIN": False,  # Force complete retraining (not incremental)
-        "BACKUP_BEFORE_RETRAIN": True,  # Backup fromodels before retraining
+        "BACKUP_BEFORE_RETRAIN": True,  # Backup models before retraining
         "NOTIFY_ON_RETRAIN": True,  # Send notification when retraining starts
     },
     "PERFORMANCE_THRESHOLDS": {
@@ -5614,10 +5614,10 @@ class APIMonitoringSystem:
         stats = self.api_stats[api_name]
         rate_limit = stats["rate_limit"]
         
-        # Check calls in lasfrom modelinute
+        # Check calls in last minute
         if stats["last_call"]:
             time_since_last = (datetime.now() - stats["last_call"]).total_seconds()
-            if time_since_last < 60:  # Within lasfrom modelinute
+            if time_since_last < 60:  # Within last minute
                 calls_per_minute = stats["calls"] / max(1, time_since_last / 60)
                 if calls_per_minute > rate_limit * self.health_thresholds["rate_limit_warning"]:
                     return False, f"Approaching rate limit: {calls_per_minute:.1f}/{rate_limit} calls/min"
@@ -5729,7 +5729,7 @@ class ConceptDriftDetector:
                 
                 # Final fallback: Simple drift detector
                 class SimpleDriftDetector:
-                    """Simple drift detector thay thcho ADWIN"""
+                    """Simple drift detector thay thế cho ADWIN"""
                     
                     def __init__(self):
                         self.window = []
@@ -6565,7 +6565,7 @@ class DynamicEnsembleManager:
             self.performance_history[symbol][model_name] = self.performance_history[symbol][model_name][-30:]
     
     def adjust_model_weights(self, symbol):
-        """Adjusfrom modelodel weights based on recent performance"""
+        """Adjust model weights based on recent performance"""
         if symbol not in self.performance_history:
             return
         
@@ -6603,7 +6603,7 @@ class DynamicEnsembleManager:
         print(f"⚖️ [Dynamic Ensemble] Updated weights for {symbol}: {new_weights}")
     
     def get_model_weights(self, symbol):
-        """Get fromodel weights for a symbol"""
+        """Get model weights for a symbol"""
         return self.model_weights.get(symbol, {})
     
     def get_weighted_prediction(self, symbol, model_predictions):
@@ -6693,7 +6693,7 @@ class AutoRetrainManager:
             # Get feature importance data
             feature_importance = self.get_feature_importance_data(symbol)
             
-            # Perforlevelomprehensive drift detection
+            # comprehensive drift detection
             drift_results = self.drift_detector.detect_drift(
                 symbol=symbol,
                 performance_data={
@@ -6861,7 +6861,7 @@ class AutoRetrainManager:
         
         print(f"🔄 [Auto-Retrain] Triggering retrain for {symbol}: {reason}")
         
-        # Backup fromodels if enabled
+        # Backup models if enabled
         if self.config["RETRAIN_SETTINGS"]["BACKUP_BEFORE_RETRAIN"]:
             self._backup_models(symbol)
         
@@ -6909,12 +6909,12 @@ class AutoRetrainManager:
             return False
     
     def _backup_models(self, symbol):
-        """Backup fromodels before retraining"""
+        """Backup models before retraining"""
         try:
             backup_dir = f"model_backups/{symbol}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
             os.makedirs(backup_dir, exist_ok=True)
             
-            # Copy fromodel files
+            # Copy model files
             model_files = glob.glob(f"saved_models_*/{symbol}*")
             for file_path in model_files:
                 shutil.copy2(file_path, backup_dir)
@@ -9563,7 +9563,7 @@ class EnhancedEnsembleModel:
         """Gefrom modelodel explanation for a prediction"""
         explanations = {}
 
-        # Get base model predictionfixnd feature importance
+        # Get base model prediction and feature importance
         for name, model in self.models.items():
             if hasattr(model, 'predict_proba'):
                 prediction = model.predict_proba(X_sample.reshape(1, -1))[0, 1]
@@ -9925,7 +9925,7 @@ class LSTMModel:
     # ### THAY THHON TON Function predict_proba old of N ###
     def predict_proba(self, X):
         """
-        Prepare data sequence frominput and predict probability.
+        Prepare data sequence from input and predict probability.
         REFACTORED: Added comprehensive error handling.
         """
         try:
@@ -9987,7 +9987,7 @@ class EnsembleModel:
         self.alert_limit = 5  # Reduced alert limit from test results
         self.overfitting_detection = True  # Enable overfitting detection
         self.validation_requirements = "STRICT"  # Strict validation
-        self.model_weights = {}  # Dictionary dluu trweights of modelsodels
+        self.model_weights = {}  # Dictionary weights of models
     def _objective(self, trial, X, y, model_name):
         """
         Function m fromiu dOptuna ti uu ha.
@@ -10001,7 +10001,7 @@ class EnsembleModel:
             numeric_columns = X.select_dtypes(include=[np.number]).columns
             categorical_columns = X.select_dtypes(include=['object', 'category']).columns
 
-            # ChUsing numeric columns cho tree-based models
+            # Using numeric columns cho tree-based models
             X_numeric = X[numeric_columns] if len(numeric_columns) > 0 else X
 
             logging.info(f"      -> Numeric columns: {len(numeric_columns)}, Categorical: {len(categorical_columns)}")
@@ -10107,8 +10107,8 @@ class EnsembleModel:
                 logging.warning(f"      -> Unknown model name '{model_name}', returning 0.0")
                 return 0.0
 
-            # Using X_numeric cho t t cmodels dtrnh l i string conversion
-            # ChSolve encoded features v numeric features
+            # Using X_numeric cho t t cmodels string conversion
+            # Solve encoded features v numeric features
             X_to_use = X_numeric
 
             # TFunction encoded features if c
@@ -10122,8 +10122,8 @@ class EnsembleModel:
                 X_to_use = pd.concat([X_to_use, encoded_features], axis=1)
 
             #  m b o DataFrame c c u trhas datang cho XGBoost v LightGBM
-            X_to_use = X_to_use.copy()  # T o copy dtrnh SettingWithCopyWarning
-            X_to_use.columns = X_to_use.columns.astype(str)  #  m b o column names l string
+            X_to_use = X_to_use.copy()  # T o copy SettingWithCopyWarning
+            X_to_use.columns = X_to_use.columns.astype(str)  #  m b o column names string
             X_to_use = X_to_use.loc[:, ~X_to_use.columns.duplicated()]  # type bduplicate columns
 
             # Check has datadata not
@@ -10172,7 +10172,7 @@ class EnsembleModel:
             else:
                 X_tr_noisy = X_tr
 
-            # Clone model dtrnh side effects
+            # Clone model side effects
             mdl = clone(model)
 
             # Fit with early stopping if model htr 
@@ -10191,7 +10191,7 @@ class EnsembleModel:
                             # Fallback if not htreval_set
                             mdl.fit(X_tr_noisy, y_tr)
                     else:
-                        # modelsodel khc
+                        # model khác
                         mdl.fit(X_tr_noisy, y_tr)
 
                     # Predict with uncertainty quantification
@@ -10310,8 +10310,8 @@ class EnsembleModel:
             X_to_use = X_numeric
 
         #  m b o DataFrame c c u trhas datang cho XGBoost
-        X_to_use = X_to_use.copy()  # T o copy dtrnh SettingWithCopyWarning
-        X_to_use.columns = X_to_use.columns.astype(str)  #  m b o column names l string
+        X_to_use = X_to_use.copy()  # T o copy SettingWithCopyWarning
+        X_to_use.columns = X_to_use.columns.astype(str)  #  m b o column names string
         X_to_use = X_to_use.loc[:, ~X_to_use.columns.duplicated()]  # type bduplicate columns
 
         for name in base_model_names:
@@ -10528,8 +10528,8 @@ class EnsembleModel:
             )
             best_params = study.best_params
         except Exception as e: # <<< TFunction EXCEPT
-            print(f"   [Optuna Warning] Li in qu trnh ti uu ha cho {name}: {e}. Using tham s mc dnh data nh.")
-            best_params = {} # Using dict empty dmodel used tham s mc dnh data nh
+            print(f"   [Optuna Warning] Li in qu trnh ti uu ha cho {name}: {e}. Using default parameters.")
+            best_params = {} # Using empty dict for default parameters
 
         if name == "xgboost" or name == "xgb":
             # Ensure random_state is not duplicated
@@ -10619,7 +10619,7 @@ class EnsembleModel:
                                 #  m b o not needsaN values
                                 X_clean_ordered = X_clean_ordered.fillna(0.0)
                                 
-                                # Chuy n d i threceiveumpy array dtrnh feature name issues
+                                # Chuy n d i threceiveumpy array feature name issues
                                 X_array = X_clean_ordered.values
                                 pred_proba = model.predict_proba(X_array)
                             else:
@@ -10634,7 +10634,7 @@ class EnsembleModel:
                                     X_array = X_pred.values
                                     pred_proba = model.predict_proba(X_array)
                         except Exception as feature_error:
-                            # Chlog warning m t l n dtrnh spam
+                            # Chlog warning m t l n spam
                             if not hasattr(self, '_feature_error_logged'):
                                 logging.warning(f"Feature ordering failed for {name}: {feature_error}")
                                 self._feature_error_logged = True
@@ -10654,7 +10654,7 @@ class EnsembleModel:
                             
                             base_predictions[name] = pred_proba
                         else:
-                            # Chlog warning m t l n dtrnh spam
+                            # Chlog warning m t l n spam
                             if not hasattr(self, '_ensemble_warning_logged'):
                                 logging.warning(f"EnsembleModel.predict_proba: Model {name} trߦ v+ None")
                                 self._ensemble_warning_logged = True
@@ -10678,7 +10678,7 @@ class EnsembleModel:
             total_weight = 0.0
             
             for name, pred in base_predictions.items():
-                weight = weights.get(name, 0.33)  # Tempty smc dnh data nh
+                weight = weights.get(name, 0.33)  # empty
                 weighted_sum += pred * weight
                 total_weight += weight
             
@@ -10736,7 +10736,7 @@ class EnsembleModel:
                                 #  m b o not needsaN values
                                 X_clean_ordered = X_clean_ordered.fillna(0.0)
                                 
-                                # Chuy n d i threceiveumpy array dtrnh feature name issues
+                                # Chuy n d i threceiveumpy array feature name issues
                                 X_array = X_clean_ordered.values
                                 pred_proba = model.predict_proba(X_array)
                             else:
@@ -10751,7 +10751,7 @@ class EnsembleModel:
                                     X_array = X_clean.values
                                     pred_proba = model.predict_proba(X_array)
                         except Exception as feature_error:
-                            # Chlog warning m t l n dtrnh spam
+                            # Chlog warning m t l n spam
                             if not hasattr(self, '_feature_error_logged_df'):
                                 logging.warning(f"Feature ordering failed for {name}: {feature_error}")
                                 self._feature_error_logged_df = True
@@ -10774,7 +10774,7 @@ class EnsembleModel:
                             
                             predictions.append(pred_proba)
                         else:
-                            # Chlog warning m t l n dtrnh spam
+                            # Chlog warning m t l n spam
                             if not hasattr(self, '_ensemble_warning_logged_df'):
                                 logging.warning(f"EnsembleModel.predict_proba_on_df: Model {name} trߦ v+ None")
                                 self._ensemble_warning_logged_df = True
@@ -10801,7 +10801,7 @@ class EnsembleModel:
             
             for i, pred in enumerate(predictions):
                 model_name = list(self.models.keys())[i] if i < len(self.models) else f"model_{i}"
-                weight = weights.get(model_name, 0.33)  # Tempty smc dnh data nh
+                weight = weights.get(model_name, 0.33)  # empty
                 weighted_sum += pred * weight
                 total_weight += weight
             
@@ -15503,7 +15503,7 @@ class AdvancedEnsembleManager:
     def _combine_predictions(self, bagging_pred, boosting_pred, stacking_pred):
         """Combine predictions from all ensemble methods"""
         try:
-            # Extract predictionfixndonfidences
+            # Extract prediction and confidences
             bag_pred, bag_conf = bagging_pred
             boost_pred, boost_conf = boosting_pred
             stack_pred, stack_conf = stacking_pred
@@ -17439,7 +17439,7 @@ class EnhancedTradingBot:
     def train_enhanced_model(self, symbol, df_to_train): # <--- TFunction df_to_train
         """This function now takefix pre-filtered DataFrame."""
         print(f"Starting model training for {symbol}...")
-        df = df_to_train # <--- Using DataFrame dufromruy n vo
+        df = df_to_train # <--- Using DataFrame from input
 
         if df is None or df.empty:
             print(f"⚠️ No data available for training {symbol}.")
@@ -17529,7 +17529,7 @@ class EnhancedTradingBot:
             X = X_numeric if len(X_numeric.columns) > 0 else X
 
         # Enhanced feature selection with multiple algoritFunctions
-        # ChUsing all from numeric cho feature selection
+        # Using all numeric cho feature selection
         X_for_selection = X.select_dtypes(include=[np.number])
 
         if len(X_for_selection.columns) == 0:
@@ -17630,7 +17630,7 @@ class EnhancedTradingBot:
                     logging.warning(f"get_enhanced_signal: not ddata danalysis {symbol}")
                     return None, 0.0, None
             else:
-                # Using data tcache
+                # Using cached data
                 if len(df_features) < 100:
                     logging.warning(f"get_enhanced_signal: data tcache not ddanalysis {symbol}")
                     return None, 0.0, None
@@ -17775,7 +17775,7 @@ class EnhancedTradingBot:
         print("--- [Portfolio Ensemble Strategy] Starting analysis for entire portfolio ---")
         
         try:
-            # Using cached data if c, Hofrom o mi
+            # Using cached data if available, otherwise fetch new
             if live_data_cache is None:
                 live_data_cache = {}
                 
@@ -17809,7 +17809,7 @@ class EnhancedTradingBot:
                 if df_features is not None:
                     live_data_cache[symbol] = df_features
             else:
-                print(f"   [Data Cache] Using cached data cho {len(live_data_cache)} symbols")
+                print(f"   [Data Cache] Using cached data for {len(live_data_cache)} symbols")
             
             if not live_data_cache:
                 print("   [Ensemble Strategy] ⚠️ No valid data available for analysis")
@@ -17872,10 +17872,10 @@ class EnhancedTradingBot:
 
             # Fallback if not l y d env (tru ng h p phbi n khi load model)
             if not symbols_agent_knows:
-                # Using these symbols count to ensure compatibility with RL model
+                # Using these symbols to ensure compatibility with RL model
                 symbols_agent_knows = SYMBOLS.copy()
-                logger.info(f" [RL Strategy] Fallback: Using these symbols count: {symbols_agent_knows}")
-                logging.info(f"[RL Strategy] Fallback: Using these symbols count: {symbols_agent_knows}")
+                logger.info(f" [RL Strategy] Fallback: Using these symbols: {symbols_agent_knows}")
+                logging.info(f"[RL Strategy] Fallback: Using these symbols: {symbols_agent_knows}")
             else:
                 logger.info(f"[RL Strategy] RL Agent d training trn: {symbols_agent_knows}")
                 logging.info(f"[RL Strategy] RL Agent d training trn: {symbols_agent_knows}")
@@ -17967,7 +17967,7 @@ class EnhancedTradingBot:
                         prob_buy = ensemble_model.predict_proba(df_features_for_pred)
                     except Exception as e:
                         logging.error(f"Prediction failed for {symbol}: {e}")
-                        # Fallback: Using confidence old Or gi trmc dnh data nh
+                        # Fallback: Using old confidence or default value
                         prob_buy = 0.5
                     
                     # Apply same confidence smoothing logiofs in get_enhanced_signal
@@ -18282,7 +18282,7 @@ class EnhancedTradingBot:
                 for symbol in symbols_not_in_rl:
                     try:
                         print(f"   [RL Fallback] Fetching data for {symbol}...")
-                        # Using Ensemble strategy cho cc symbols ny
+                        # Using Ensemble strategy for these symbols
                         df_features = self.data_manager.create_enhanced_features(symbol)
                         if df_features is not None and len(df_features) >= 100:
                             # Add Master Agent analysis cho symbol not trong RL
@@ -20311,7 +20311,7 @@ class EnhancedTradingBot:
                 primary_tf = PRIMARY_TIMEFRAME_BY_SYMBOL.get(symbol, PRIMARY_TIMEFRAME_DEFAULT)
                 
                 if live_data_cache and symbol in live_data_cache:
-                    # Using data tcache
+                    # Using cached data
                     recent_data = live_data_cache[symbol]
                     print(f"[{symbol}] Using cached data cho position check")
                 else:
@@ -21321,7 +21321,7 @@ class DriftMonitor:
         live_dist = live_bins.value_counts(normalize=True).sort_index()
 
         # K t h p hai phn must dd m b o chng c cng all bin
-        psi_df = pd.DataFrame({'reference': reference_dist, 'live': live_dist}).fillna(0.0001) # i n 0.0001 dtrnh l i chia cho 0
+        psi_df = pd.DataFrame({'reference': reference_dist, 'live': live_dist}).fillna(0.0001) # i n 0.0001 to avoid division by 0
 
         # Calculate PSI
         psi_df['psi'] = (psi_df['live'] - psi_df['reference']) * np.log(psi_df['live'] / psi_df['reference'])
@@ -24309,7 +24309,6 @@ if __name__ == "__main__":
         exit(0)
     
     # Initialize global instances
-    global _logging_manager, _price_aggregator
     
     try:
         # Initialize logging
@@ -24522,7 +24521,7 @@ class ProductionTestSuite:
                          current_time - timedelta(minutes=3),
                          current_time - timedelta(minutes=1)]
         })
-        # Set timestamp as index dtrnh l i datetime operation
+        # Set timestamp as index for datetime operation
         mock_data.set_index('timestamp', inplace=True)
 
         result = monitor.check_data_freshness_detailed("BTCUSD", "H1", mock_data)
