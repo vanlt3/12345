@@ -7321,7 +7321,7 @@ class NewsEconomicManager:
             ("Finnhub", FinnhubNewsProvider(finnhub_key)),
             ("Marketaux", MarketauxProvider(marketaux_key)),
             ("NewsAPI.org", NewsApiOrgProvider(newsapi_key)),
-            ("EODHD", EODHDProvider(eodhd_key))
+            ("EODHD", EODHDNewsProvider(eodhd_key))
         ]
         
         enabled_count = 0
