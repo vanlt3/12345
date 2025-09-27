@@ -6422,7 +6422,7 @@ class OnlineLearningManager:
             decision_mapping = {
                 'BUY': 1,
                 'SELL': -1,
-                'HOLD': 0
+                'HOLD': -1  # Changed from 0 to -1 (SELL)
             }
             
             base_target = decision_mapping.get(final_decision, 0)
@@ -6539,7 +6539,7 @@ class OnlineLearningManager:
         """Get prediction from online learning model with enhanced features"""
         try:
             if symbol not in self.models:
-                return "HOLD", 0.5
+                return "SELL", 0.5
             
             # Extract features - now returns numpy array
             features = self._extract_features_from_market_data(market_data)
@@ -6560,15 +6560,12 @@ class OnlineLearningManager:
                 prediction = model.predict_one(features_for_pred)
                 
                 # Convert prediction to decision
-                if prediction > 0.3:
+                if prediction > 0.0:
                     decision = "BUY"
                     confidence = min(prediction, 0.9)
-                elif prediction < -0.3:
+                else:
                     decision = "SELL"
                     confidence = min(abs(prediction), 0.9)
-                else:
-                    decision = "HOLD"
-                    confidence = 0.5
                     
             elif symbol in self.models:
                 model = self.models[symbol]
@@ -6579,15 +6576,12 @@ class OnlineLearningManager:
                 if prediction > 0.5:
                     decision = "BUY"
                     confidence = prediction
-                elif prediction < 0.5:
+                else:
                     decision = "SELL"
                     confidence = 1 - prediction
-                else:
-                    decision = "HOLD"
-                    confidence = 0.5
             
             else:
-                return "HOLD", 0.5
+                return "SELL", 0.5
             
             return decision, confidence
             
@@ -6598,7 +6592,7 @@ class OnlineLearningManager:
             else:
                 logging.error("Features not available due to earlier error")
             logging.error(f"Market data keys: {list(market_data.keys()) if hasattr(market_data, 'keys') else 'No keys'}")
-            return "HOLD", 0.5
+            return "SELL", 0.5
 
 class DynamicEnsembleManager:
     """Dynamic ensemble weight adjustment based on recent performance"""
@@ -12928,14 +12922,14 @@ class DynamicActionSpace:
     def decode_action(self, action_code, symbol, market_regime):
         """Decode action code to trading signal"""
         action_map = {
-            0: "HOLD",
+            0: "SELL",
             1: "BUY", 
             2: "SELL",
             3: "Sin_BUY",
             4: "Sin_SELL"
         }
         
-        action_name = action_map.get(action_code, "HOLD")
+        action_name = action_map.get(action_code, "SELL")
         
         # Adjust confidence based on action strength
         if action_name in ["Sin_BUY", "Sin_SELL"]:
@@ -13383,7 +13377,7 @@ class TransferLearningManager:
                 'analysis_results': analysis_results
             }
             
-            print(f"✅ [Master Agent] Trailing stop decision for {symbol}: {'ACTIVATE' if should_activate else 'HOLD'}")
+            print(f"✅ [Master Agent] Trailing stop decision for {symbol}: {'ACTIVATE' if should_activate else 'NO ACTION'}")
             if activation_reason:
                 print(f"   Reasons: {', '.join(activation_reason)}")
             
@@ -13772,7 +13766,7 @@ class TransferLearningManager:
                         print(f" [Master Agent Coordinator] {subtask_name}: {opinion} ({confidence:.2%})")
                     except Exception as e:
                         print(f"[Master Agent Coordinator] Li in {subtask_name}: {e}")
-                        agent_opinions[subtask_name] = "HOLD"
+                        agent_opinions[subtask_name] = "SELL"
                         agent_confidences[subtask_name] = 0.5
             
             # Apply consensus mechanism
@@ -13790,7 +13784,7 @@ class TransferLearningManager:
         except Exception as e:
             print(f"[Master Agent Coordinator] Li in coordinate_decision: {e}")
             logging.error(f"Error in Master Agent coordination: {e}")
-            return "HOLD", 0.5
+            return "SELL", 0.5
     
     def decompose_task(self, task_type, market_data):
         """Chia nh task thnh subtasks cho specialist agents"""
@@ -13816,7 +13810,7 @@ class TransferLearningManager:
         """Apply consensus mechanism to agent opinions"""
         try:
             if not opinions:
-                return "HOLD", 0.5
+                return "SELL", 0.5
             
             # Weight opinions by confidence
             weighted_votes = {}
@@ -13835,11 +13829,11 @@ class TransferLearningManager:
                 final_confidence = weighted_votes[best_decision] / total_weight if total_weight > 0 else 0.5
                 return best_decision, min(final_confidence, 0.95)
             else:
-                return "HOLD", 0.5
+                return "SELL", 0.5
                 
         except Exception as e:
             print(f"[Master Agent Coordinator] Error in consensus mechanism: {e}")
-            return "HOLD", 0.5
+            return "SELL", 0.5
     
     def _update_agent_performance(self, opinions, confidences, symbol):
         """Update performance of agents"""
@@ -13893,7 +13887,7 @@ class TrendAnalysisAgent:
         """analysis trenda symbol"""
         try:
             if len(data) < 20:
-                return "HOLD", 0.5
+                return "SELL", 0.5
             
             # Calculate trend indicators
             sma_20 = data['close'].rolling(20).mean()
@@ -13914,14 +13908,14 @@ class TrendAnalysisAgent:
                 decision = "SELL"
                 confidence = min(0.9, trend_strength * 10)
             else:
-                decision = "HOLD"
+                decision = "SELL"
                 confidence = 0.5
             
             return decision, confidence
             
         except Exception as e:
             logging.error(f"TrendAnalysisAgent error: {e}")
-            return "HOLD", 0.5
+            return "SELL", 0.5
 
 class NewsAnalysisAgent:
     """Specialist agent cho trend analysis"""
@@ -13930,7 +13924,7 @@ class NewsAnalysisAgent:
         """analysis trenda symbol"""
         try:
             if len(data) < 20:
-                return "HOLD", 0.5
+                return "SELL", 0.5
             
             # Calculate trend indicators
             sma_20 = data['close'].rolling(20).mean()
@@ -13951,14 +13945,14 @@ class NewsAnalysisAgent:
                 decision = "SELL"
                 confidence = min(0.9, trend_strength * 10)
             else:
-                decision = "HOLD"
+                decision = "SELL"
                 confidence = 0.5
             
             return decision, confidence
             
         except Exception as e:
             logging.error(f"TrendAnalysisAgent error: {e}")
-            return "HOLD", 0.5
+            return "SELL", 0.5
 
 class NewsAnalysisAgent:
     """Specialist agent cho newfixnalysis"""
@@ -13976,14 +13970,14 @@ class NewsAnalysisAgent:
                 decision = "SELL"
                 confidence = min(0.8, abs(news_impact))
             else:
-                decision = "HOLD"
+                decision = "SELL"
                 confidence = 0.5
             
             return decision, confidence
             
         except Exception as e:
             logging.error(f"NewsAnalysisAgent error: {e}")
-            return "HOLD", 0.5
+            return "SELL", 0.5
 
 class RiskManagementAgent:
     """Specialist agent cho risk management"""
@@ -13992,7 +13986,7 @@ class RiskManagementAgent:
         """analysis risk v dua ra khuy n ngh """
         try:
             if len(data) < 10:
-                return "HOLD", 0.5
+                return "SELL", 0.5
             
             # Calculate volatility
             returns = data['close'].pct_change().dropna()
@@ -14000,20 +13994,20 @@ class RiskManagementAgent:
             
             # Risk assessment
             if volatility > 5.0:  # High volatility
-                decision = "HOLD"  # Conservative approach
+                decision = "SELL"  # Conservative approach
                 confidence = 0.7
             elif volatility < 1.0:  # Low volatility
                 decision = "BUY"  # Can take more risk
                 confidence = 0.6
             else:
-                decision = "HOLD"
+                decision = "SELL"
                 confidence = 0.5
             
             return decision, confidence
             
         except Exception as e:
             logging.error(f"RiskManagementAgent error: {e}")
-            return "HOLD", 0.5
+            return "SELL", 0.5
 
 class SentimentAnalysisAgent:
     """Specialist agent cho sentiment analysis"""
@@ -14031,14 +14025,14 @@ class SentimentAnalysisAgent:
                 decision = "SELL"
                 confidence = min(0.8, abs(sentiment_score))
             else:
-                decision = "HOLD"
+                decision = "SELL"
                 confidence = 0.5
             
             return decision, confidence
             
         except Exception as e:
             logging.error(f"SentimentAnalysisAgent error: {e}")
-            return "HOLD", 0.5
+            return "SELL", 0.5
 
 class VolatilityPredictionAgent:
     """Specialist agent cho volatility prediction"""
@@ -14047,7 +14041,7 @@ class VolatilityPredictionAgent:
         """Equal volatility v dua ra khuy n ngh """
         try:
             if len(data) < 20:
-                return "HOLD", 0.5
+                return "SELL", 0.5
             
             # Calculate current volatility
             returns = data['close'].pct_change().dropna()
@@ -14057,7 +14051,7 @@ class VolatilityPredictionAgent:
             volatility_trend = returns.tail(5).std() - returns.tail(10).std()
             
             if volatility_trend > 0:  # Increasing volatility
-                decision = "HOLD"  # Be cautious
+                decision = "SELL"  # Be cautious
                 confidence = 0.7
             else:  # Decreasing volatility
                 decision = "BUY"  # Can take positions
@@ -14067,7 +14061,7 @@ class VolatilityPredictionAgent:
             
         except Exception as e:
             logging.error(f"VolatilityPredictionAgent error: {e}")
-            return "HOLD", 0.5
+            return "SELL", 0.5
 
 class PortfolioOptimizationAgent:
     """Specialist agent cho portfolio optimization"""
@@ -14085,14 +14079,14 @@ class PortfolioOptimizationAgent:
                 decision = "SELL"
                 confidence = 1 - portfolio_score
             else:
-                decision = "HOLD"
+                decision = "SELL"
                 confidence = 0.5
             
             return decision, confidence
             
         except Exception as e:
             logging.error(f"PortfolioOptimizationAgent error: {e}")
-            return "HOLD", 0.5
+            return "SELL", 0.5
 
 # === MASTER AGENT FOR TP/SL DECISIONS ===
 class MasterAgent:
@@ -14570,7 +14564,7 @@ class MasterAgent:
                     intelligence[agent_name] = analysis_result
                 except Exception as e:
                     print(f"⚠️ [Master Agent] Error in {agent_name}: {e}")
-                    intelligence[agent_name] = ("HOLD", 0.5)
+                    intelligence[agent_name] = ("SELL", 0.5)
             
             # Calculate technical indicators
             intelligence['technical'] = self._calculate_technical_indicators(df)
@@ -14705,7 +14699,7 @@ class MasterAgent:
             price_vs_sma20 = technical.get('price_vs_sma20', 1.0)
             
             # Get trend analysis from specialist agent
-            trend_signal, trend_confidence = market_intelligence.get('trend_analyzer', ('HOLD', 0.5))
+            trend_signal, trend_confidence = market_intelligence.get('trend_analyzer', ('SELL', 0.5))
             
             # Adjust levels based on trend alignment
             if direction.upper() == 'BUY':
@@ -14952,7 +14946,7 @@ class MasterAgent:
     def _assess_trend_strength(self, market_intelligence):
         """Assess the strength of the current trend"""
         try:
-            trend_signal, trend_confidence = market_intelligence.get('trend_analyzer', ('HOLD', 0.5))
+            trend_signal, trend_confidence = market_intelligence.get('trend_analyzer', ('SELL', 0.5))
             technical = market_intelligence.get('technical', {})
             
             # Combine trend signal confidence with technical indicators
@@ -15257,7 +15251,7 @@ class MasterAgent:
             # Identify successful conditions
             technical = market_intelligence.get('technical', {})
             volatility_pct = technical.get('atr_pct', 0.01)
-            trend_strength = market_intelligence.get('trend_analyzer', ('HOLD', 0.5))[1]
+            trend_strength = market_intelligence.get('trend_analyzer', ('SELL', 0.5))[1]
             
             # Slightly increase weights for conditions that worked
             if volatility_pct < 0.015 and trend_strength > 0.7:
@@ -15412,7 +15406,7 @@ class MasterAgent:
         except Exception as e:
             print(f"[Master Agent Coordinator] Li in coordinate_decision: {e}")
             logging.error(f"Error in Master Agent coordination: {e}")
-            return "HOLD", 0.5
+            return "SELL", 0.5
     
     def decompose_task(self, task_type, market_data):
         """Chia nh task thnh subtasks cho specialist agents"""
@@ -15474,14 +15468,14 @@ class MasterAgent:
                 final_decision = "SELL"
                 final_confidence = sell_weight
             else:
-                final_decision = "HOLD"
+                final_decision = "SELL"
                 final_confidence = hold_weight
             
             return final_decision, final_confidence
             
         except Exception as e:
             print(f"[Master Agent Coordinator] Error combining opinions: {e}")
-            return "HOLD", 0.5
+            return "SELL", 0.5
     
     def _update_agent_performance(self, agent_opinions, agent_confidences, symbol):
         """Update performance tracking for specialist agents"""
@@ -15730,7 +15724,7 @@ class AdvancedEnsembleManager:
             
         except Exception as e:
             logging.error(f"Error in ensemble prediction: {e}")
-            return "HOLD", 0.5
+            return "SELL", 0.5
     
     def _predict_bagging(self, data, symbol):
         """Equal Using Bagging"""
@@ -15755,7 +15749,7 @@ class AdvancedEnsembleManager:
             
         except Exception as e:
             logging.error(f"Error in bagging prediction: {e}")
-            return "HOLD", 0.5
+            return "SELL", 0.5
     
     def _predict_boosting(self, data, symbol):
         """Equal Using Boosting"""
@@ -15792,7 +15786,7 @@ class AdvancedEnsembleManager:
             
         except Exception as e:
             logging.error(f"Error in boosting prediction: {e}")
-            return "HOLD", 0.5
+            return "SELL", 0.5
     
     def _predict_stacking(self, data, symbol):
         """Equal Using Stacking"""
@@ -15816,7 +15810,7 @@ class AdvancedEnsembleManager:
             
         except Exception as e:
             logging.error(f"Error in stacking prediction: {e}")
-            return "HOLD", 0.5
+            return "SELL", 0.5
     
     def _combine_predictions(self, bagging_pred, boosting_pred, stacking_pred):
         """Combine predictions from all ensemble methods"""
@@ -15843,7 +15837,7 @@ class AdvancedEnsembleManager:
             
         except Exception as e:
             logging.error(f"Error combining predictions: {e}")
-            return "HOLD", 0.5
+            return "SELL", 0.5
     
     def update_model_performance(self, symbol, prediction, actual_outcome):
         """Update performance of models"""
@@ -16388,7 +16382,7 @@ class EnhancedTradingBot:
             
         except Exception as e:
             logging.error(f"Error combining decisions: {e}")
-            return "HOLD", 0.5
+            return "SELL", 0.5
     
     def _calculate_dynamic_weights(self, rl_confidence, master_confidence, ensemble_confidence):
         """Calculate dynamic weights based on confidence levels"""
@@ -16552,7 +16546,7 @@ class EnhancedTradingBot:
             
         except Exception as e:
             logging.error(f"Error combining decisions with online learning: {e}")
-            return "HOLD", 0.5
+            return "SELL", 0.5
     
     def _calculate_dynamic_weights_with_online_learning(self, rl_confidence, master_confidence, ensemble_confidence, online_confidence):
         """Calculate dynamic weights including online learning"""
@@ -18024,7 +18018,7 @@ class EnhancedTradingBot:
         try:
             # Simple technical analysis fallback
             if len(df_features) < 20:
-                return "HOLD", 0.5, None
+                return "SELL", 0.5, None
             
             # Calculate simple moving averages
             sma_20 = df_features['close'].rolling(20).mean().iloc[-1]
@@ -18048,11 +18042,11 @@ class EnhancedTradingBot:
             elif rsi < 30:
                 return "BUY", 0.6, None  # Oversold
             else:
-                return "HOLD", 0.5, None
+                return "SELL", 0.5, None
                 
         except Exception as e:
             logging.warning(f"Fallback signal failed for {symbol}: {e}")
-            return "HOLD", 0.5, None
+            return "SELL", 0.5, None
 
     def get_enhanced_signal(self, symbol, for_open_position_check=False, df_features=None):
         """
