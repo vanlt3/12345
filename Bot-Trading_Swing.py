@@ -15780,7 +15780,9 @@ class EnhancedTradingBot:
         
         # Advanced Master Agent System for TP/SL Decisions
         print("🎯 [Bot Init] Initializing Master Agent for TP/SL decisions...")
-        self.master_agent_coordinator = MasterAgent()
+        # Create a default config for MasterAgent initialization
+        default_config = Config()
+        self.master_agent_coordinator = MasterAgent(default_config)
         print("✅ [Bot Init] Master Agent initialized successfully")
         
         # Advanced Ensemble System
@@ -24336,6 +24338,7 @@ if __name__ == "__main__":
         # Inject new components into bot
         bot.config = config
         bot.master_agent = master_agent
+        bot.master_agent_coordinator = master_agent  # Update the coordinator with the properly configured agent
         bot.monitor = monitor
         bot.price_aggregator = _price_aggregator
         bot.logging_manager = _logging_manager
