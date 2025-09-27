@@ -7612,11 +7612,13 @@ class NewsEconomicManager:
             except Exception as api_error:
                 error_msg = str(api_error)
                 if "403" in error_msg or "Forbidden" in error_msg:
-                    # Only log once per session to avoid spam
+                    # CRITICAL FIX: Better error handling for 403 errors
                     if not hasattr(self, '_te_403_logged'):
-                        logging.warning("⚠️ Trading Economic API access forbidden (403) - API key may be invalid or rate limited")
+                        logging.warning("⚠️ Trading Economics API access forbidden (403) - API key may be invalid or rate limited")
                         logging.warning("⚠️ Bot will continue without Trading Economics data")
+                        logging.warning("💡 Suggestion: Check API key validity or wait for rate limit reset")
                         self._te_403_logged = True
+                    
                     # Disable Trading Economics for this session to avoid repeated errors
                     try:
                         globals()['TRADING_ECONOMICS_AVAILABLE'] = False
@@ -7625,12 +7627,15 @@ class NewsEconomicManager:
                             te.login = lambda x: None  # Disable login function
                     except:
                         pass
+                    
+                    # Return empty calendar but don't crash
                     return []
                 elif "401" in error_msg or "Unauthorized" in error_msg:
-                    # Only log once per session to avoid spam
+                    # CRITICAL FIX: Better error handling for 401 errors
                     if not hasattr(self, '_te_401_logged'):
                         logging.warning("⚠️ Trading Economics API unauthorized (401) - API key may be invalid")
                         logging.warning("⚠️ Bot will continue without Trading Economics data")
+                        logging.warning("💡 Suggestion: Verify API key credentials")
                         self._te_401_logged = True
                     try:
                         globals()['TRADING_ECONOMICS_AVAILABLE'] = False
@@ -7638,8 +7643,10 @@ class NewsEconomicManager:
                         pass
                     return []
                 elif "429" in error_msg or "Too Many Requests" in error_msg:
-                    logging.warning("⚠️ Trading Economic API rate limited (429) - too many requests")
+                    # CRITICAL FIX: Better handling for rate limiting
+                    logging.warning("⚠️ Trading Economics API rate limited (429) - too many requests")
                     logging.warning("⚠️ Bot will retry later")
+                    logging.warning("💡 Suggestion: Wait for rate limit reset or upgrade API plan")
                     return []
                 else:
                     logging.warning(f"⚠️ Trading Economics API error: {api_error}")
@@ -16466,32 +16473,66 @@ class EnhancedTradingBot:
             logging.error(f"Error triggering online learning feedback: {e}")
     
     def _combine_all_decisions_with_online_learning(self, rl_action, rl_confidence, master_action, master_confidence, ensemble_action, ensemble_confidence, online_action, online_confidence, symbol):
-        """Combine decisions from RL, Master Agent, Ensemble, and Online Learning with Dynamic Confidence Adjustment"""
+        """CRITICAL FIX: Combine decisions from RL, Master Agent, Ensemble, and Online Learning with proper confidence calculation"""
         try:
             # Dynamic weight adjustment based on confidence levels
             weights = self._calculate_dynamic_weights_with_online_learning(
                 rl_confidence, master_confidence, ensemble_confidence, online_confidence
             )
             
-            # Weighted voting system with dynamic weights
-            decisions = {
-                rl_action: rl_confidence * weights['rl'],
-                master_action: master_confidence * weights['master'],
-                ensemble_action: ensemble_confidence * weights['ensemble'],
-                online_action: online_confidence * weights['online']
-            }
+            # CRITICAL FIX: Proper weighted voting system
+            # Convert actions to numerical values for calculation
+            action_values = {'BUY': 1, 'SELL': -1, 'HOLD': 0}
             
-            # Select decision with highest weighted vote
-            final_decision = max(decisions, key=decisions.get)
-            final_confidence = decisions[final_decision]
+            # Calculate weighted average of action values
+            weighted_sum = 0.0
+            total_weight = 0.0
             
-            # Apply final confidence adjustment based on decision consistency
+            for action, confidence in [(rl_action, rl_confidence), (master_action, master_confidence), 
+                                    (ensemble_action, ensemble_confidence), (online_action, online_confidence)]:
+                # CRITICAL FIX: Proper weight assignment based on decision source
+                if action == rl_action:
+                    weight = weights['rl']
+                elif action == master_action:
+                    weight = weights['master']
+                elif action == ensemble_action:
+                    weight = weights['ensemble']
+                elif action == online_action:
+                    weight = weights['online']
+                else:
+                    weight = 0.25  # Default weight
+                
+                action_value = action_values.get(action, 0)
+                weighted_sum += action_value * confidence * weight
+                total_weight += weight
+            
+            # Calculate final decision based on weighted average
+            if total_weight > 0:
+                weighted_average = weighted_sum / total_weight
+                
+                # Determine final decision based on weighted average
+                if weighted_average > 0.3:
+                    final_decision = 'BUY'
+                    final_confidence = min(0.95, weighted_average)
+                elif weighted_average < -0.3:
+                    final_decision = 'SELL'
+                    final_confidence = min(0.95, abs(weighted_average))
+                else:
+                    final_decision = 'HOLD'
+                    final_confidence = 0.5 + abs(weighted_average) * 0.5
+            else:
+                final_decision = 'HOLD'
+                final_confidence = 0.5
+            
+            # Apply consistency factor for final confidence adjustment
             consistency_factor = self._calculate_decision_consistency_with_online_learning(
                 rl_action, master_action, ensemble_action, online_action
             )
-            final_confidence *= consistency_factor
             
-            # Clamp final confidence
+            # CRITICAL FIX: Apply consistency factor properly
+            final_confidence = final_confidence * consistency_factor
+            
+            # Ensure confidence is within reasonable bounds
             final_confidence = max(0.1, min(0.95, final_confidence))
             
             # Log decision combination with enhanced details
@@ -17002,11 +17043,31 @@ class EnhancedTradingBot:
                     profit_factor < 0.8    # Profit factor below 0.8
                 )
                 
-                if should_disable:
+                # CRITICAL FIX: More strict performance criteria for symbols with zero win rate
+                should_disable = False
+                
+                # Case 1: Zero win rate with any trades - immediate disable
+                if win_rate == 0.0 and total_trades > 0:
+                    should_disable = True
+                    logger.warning(f"Disabling {symbol} due to ZERO win rate with {total_trades} trades")
+                    print(f"   {symbol}: ZERO win rate with {total_trades} trades - disabling immediately")
+                
+                # Case 2: Very poor performance with sufficient trades
+                elif (
+                    rating == "poor" and 
+                    total_trades >= 5 and  # Reduced from 10 to 5 trades
+                    win_rate < 0.20 and    # Increased from 15% to 20%
+                    profit_factor < 0.9    # Increased from 0.8 to 0.9
+                ):
+                    should_disable = True
                     logger.warning(f"Disabling {symbol} due to poor performance: WinRate={win_rate:.2%}, Trades={total_trades}")
-                    print(f"   {symbol}: Poor performance - model temporarily disabled")
-                    self.active_symbols.discard(symbol)
-                    disabled_symbols.append(symbol)
+                    print(f"   {symbol}: Poor performance - WinRate={win_rate:.2%}, Trades={total_trades} - disabling")
+                
+                # Case 3: Negative profit factor with trades
+                elif profit_factor <= 0.0 and total_trades > 0:
+                    should_disable = True
+                    logger.warning(f"Disabling {symbol} due to negative profit factor: {profit_factor:.2f}")
+                    print(f"   {symbol}: Negative profit factor ({profit_factor:.2f}) - disabling")
                     
                     # Enhanced Discord message with better metrics
                     message = f"**SYMBOL TM THI TT**\n"
@@ -17029,7 +17090,7 @@ class EnhancedTradingBot:
                         "Max Drawdown": f"{max_drawdown:.2%}"
                     }
                     self.send_discord_alert(message, "WARNING", "HIGH", performance_data)
-                elif rating == "poor" and total_trades < 10:
+                elif rating == "poor" and total_trades < 5:  # Reduced threshold
                     logger.info(f"Keeping {symbol} active despite poor rating - insufficient trades ({total_trades})")
                     print(f"   {symbol}: Poor performance but insufficient trades ({total_trades}) - keeping active")
                 elif rating == "insufficient_data":
@@ -18025,6 +18086,11 @@ class EnhancedTradingBot:
                 logging.warning(f"get_enhanced_signal: No suitable model found for {symbol} (Regime: {current_regime})")
                 logging.info(f"Available models for {symbol}: trending={symbol in self.trending_models}, ranging={symbol in self.ranging_models}")
                 
+                # CRITICAL FIX: Only try alternative model if symbol is in active_symbols
+                if symbol not in self.active_symbols:
+                    logging.info(f"get_enhanced_signal: {symbol} not in active_symbols, skipping model fallback")
+                    return None, 0.0, None
+                
                 # Try to use alternative model if available
                 if current_regime != 0 and symbol in self.ranging_models:
                     logging.info(f"Using ranging model as fallback for {symbol}")
@@ -18034,15 +18100,17 @@ class EnhancedTradingBot:
                     model_data = self.trending_models.get(symbol)
                 
                 if model_data is None:
-                    # Use fallback signal instead of returning None
-                    return self._get_fallback_signal(symbol, df_features)
+                    # CRITICAL FIX: Return None instead of fallback signal for symbols without models
+                    logging.warning(f"get_enhanced_signal: No models available for {symbol}, returning None")
+                    return None, 0.0, None
 
             model = model_data.get("ensemble")
             feature_columns = model_data.get("feature_columns")
 
             if not model or not feature_columns:
                 logging.warning(f"get_enhanced_signal: Model Or feature_columns not hợp lệ cho {symbol}")
-                return self._get_fallback_signal(symbol, df_features)
+                # CRITICAL FIX: Return None instead of fallback for invalid models
+                return None, 0.0, None
 
             # Pipeline clean data more (original logic old of b n)
             df_features.replace([np.inf, -np.inf], np.nan, inplace=True)
@@ -18152,6 +18220,74 @@ class EnhancedTradingBot:
 
         return valid_actions[:len(symbols_in_env)]
 
+    def _intelligent_feature_selection(self, observation_vector, target_size, symbols_agent_knows):
+        """
+        CRITICAL FIX: Intelligent feature selection for RL observation shape mismatch.
+        This method ensures we keep the most important features for RL decision making.
+        """
+        try:
+            current_size = len(observation_vector)
+            if current_size <= target_size:
+                return observation_vector.astype(np.float32)
+            
+            # Calculate feature importance using multiple criteria
+            feature_importance = np.zeros(current_size)
+            
+            # 1. Variance-based importance (higher variance = more informative)
+            feature_variance = np.var(observation_vector)
+            if feature_variance > 0:
+                individual_variances = np.abs(observation_vector - np.mean(observation_vector))
+                feature_importance += individual_variances / feature_variance
+            
+            # 2. Magnitude-based importance (larger absolute values = more significant)
+            feature_importance += np.abs(observation_vector) / (np.sum(np.abs(observation_vector)) + 1e-8)
+            
+            # 3. Non-zero importance (non-zero features are more informative than zeros)
+            non_zero_mask = np.abs(observation_vector) > 1e-8
+            feature_importance += non_zero_mask.astype(float) * 0.5
+            
+            # 4. Position-based importance (preserve structure for different symbols)
+            # Each symbol contributes features, so we want to preserve proportional representation
+            num_symbols = len(symbols_agent_knows)
+            if num_symbols > 0:
+                features_per_symbol = current_size // num_symbols
+                for i, symbol in enumerate(symbols_agent_knows):
+                    start_idx = i * features_per_symbol
+                    end_idx = min((i + 1) * features_per_symbol, current_size)
+                    # Boost importance for features from active symbols
+                    if symbol in self.active_symbols:
+                        feature_importance[start_idx:end_idx] *= 1.5
+            
+            # Select top features by importance
+            top_indices = np.argsort(feature_importance)[-target_size:]
+            selected_features = observation_vector[top_indices]
+            
+            # Ensure we maintain feature diversity (avoid selecting only similar features)
+            if len(np.unique(np.round(selected_features, 6))) < target_size * 0.7:
+                # If too many similar features, add some diversity
+                unique_indices = []
+                for idx in top_indices:
+                    if len(unique_indices) == 0 or np.min(np.abs(observation_vector[idx] - observation_vector[unique_indices])) > 1e-6:
+                        unique_indices.append(idx)
+                    if len(unique_indices) >= target_size:
+                        break
+                
+                # Fill remaining slots with highest importance features
+                remaining_needed = target_size - len(unique_indices)
+                if remaining_needed > 0:
+                    remaining_indices = [idx for idx in top_indices if idx not in unique_indices][:remaining_needed]
+                    unique_indices.extend(remaining_indices)
+                
+                selected_features = observation_vector[unique_indices[:target_size]]
+            
+            logger.info(f"[RL Strategy] Selected {len(selected_features)} features from {current_size} using intelligent selection")
+            return selected_features.astype(np.float32)
+            
+        except Exception as e:
+            logger.error(f"Error in intelligent feature selection: {e}")
+            # Fallback: simple truncation keeping first target_size features
+            return observation_vector[:target_size].astype(np.float32)
+
     # EnhancedTradingBofrom modelethods
 
     # EnhancedTradingBofrom modelethods
@@ -18237,11 +18373,16 @@ class EnhancedTradingBot:
                     # L y T+n hi+u tEnsemble model
                     signal, confidence, proba_array = self.get_enhanced_signal(symbol, df_features=df_features)
                     
+                    # CRITICAL FIX: Check if signal is None (no model available)
+                    if signal is None:
+                        print(f"   [Ensemble Strategy] ⚠️ {symbol}: No model available, skipping")
+                        continue
+                    
                     if signal and confidence > ML_CONFIG["MIN_CONFIDENCE_TRADE"]:
                         print(f"   [Ensemble Strategy]  {symbol}: {signal} (Confidence: {confidence:.2%})")
                         await self.handle_position_logic(symbol, signal, confidence)
                     else:
-                        print(f"   [Ensemble Strategy] ⚠️ {symbol}: No signal available")
+                        print(f"   [Ensemble Strategy] ⚠️ {symbol}: Low confidence ({confidence:.2%}), skipping")
                         
                 except Exception as e:
                     print(f"   [Ensemble Strategy] Li analysis {symbol}: {e}")
@@ -18453,7 +18594,7 @@ class EnhancedTradingBot:
             logger.debug(f" [RL Strategy] Expected observation shape: {expected_shape}")
             logger.debug(f" [RL Strategy] currentobservation shape: {final_live_observation.shape}")
 
-            # Fix observation shape mismatch with intelligent feature alignment
+            # Fix observation shape mismatch with proper feature alignment
             if final_live_observation.shape != expected_shape:
                 current_size = final_live_observation.shape[0]
                 expected_size = expected_shape[0]
@@ -18469,17 +18610,12 @@ class EnhancedTradingBot:
                     logger.info(f"[RL Strategy] Successfully padded observation to {final_live_observation.shape}")
                     logging.info(f"Successfully padded observation to {final_live_observation.shape}")
                 else:
-                    # Intelligent truncation: preserve most important features
-                    # Calculate feature importance based on variance and non-zero values
-                    feature_importance = np.abs(final_live_observation)
-                    feature_importance = feature_importance / (np.sum(feature_importance) + 1e-8)
+                    # CRITICAL FIX: Use proper feature selection instead of random truncation
+                    # This ensures we keep the most important features for RL decision making
+                    final_live_observation = self._intelligent_feature_selection(final_live_observation, expected_size, symbols_agent_knows)
                     
-                    # Select top features by importance
-                    top_indices = np.argsort(feature_importance)[-expected_size:]
-                    final_live_observation = final_live_observation[top_indices].astype(np.float32)
-                    
-                    logger.info(f"[RL Strategy] Successfully truncated observation to {final_live_observation.shape} using intelligent feature selection")
-                    logging.info(f"Successfully truncated observation to {final_live_observation.shape} using intelligent feature selection")
+                    logger.info(f"[RL Strategy] Successfully selected {expected_size} most important features using intelligent selection")
+                    logging.info(f"Successfully selected {expected_size} most important features using intelligent selection")
 
             final_live_observation = np.nan_to_num(final_live_observation)
             logger.debug(f" [RL Strategy] Final observation shape: {final_live_observation.shape}")
@@ -18678,20 +18814,33 @@ class EnhancedTradingBot:
                 # Ly tn hiu t Ensemble model lm fallback
                 try:
                     signal, ensemble_confidence, _ = self.get_enhanced_signal(symbol_to_act, df_features=live_data_cache.get(symbol_to_act))
+                    
+                    # CRITICAL FIX: Check if signal is None (no model available)
+                    if signal is None:
+                        print(f"   [RL Fallback] {symbol_to_act}: No model available, skipping")
+                        continue
+                    
                     if signal and ensemble_confidence > ML_CONFIG["MIN_CONFIDENCE_TRADE"] and symbol_to_act not in self.open_positions:
                         print(f"   [RL Fallback] {symbol_to_act}: RL=HOLD, Ensemble={signal} ({ensemble_confidence:.2%})")
                         tasks.append(self.handle_position_logic(symbol_to_act, signal, ensemble_confidence))
                     elif signal and ensemble_confidence > ML_CONFIG["MIN_CONFIDENCE_TRADE"] and symbol_to_act in self.open_positions:
                         print(f"   [RL Fallback] {symbol_to_act}: Skipping - Already has open position")
+                    else:
+                        print(f"   [RL Fallback] {symbol_to_act}: Low confidence ({ensemble_confidence:.2%}), skipping")
                 except Exception as e:
                     print(f"   [RL Fallback] Error in fallback analysis for {symbol_to_act}: {e}")
 
             # FALLBACK: Check cc active symbols khng trong RL Agent
             symbols_not_in_rl = self.active_symbols - set(symbols_agent_knows)
             if symbols_not_in_rl:
-                logging.info(f"[RL Fallback] Check {len(symbols_not_in_rl)} symbols khng trong RL Agent: {list(symbols_not_in_rl)}")
-                print(f"   [RL Fallback] Check {len(symbols_not_in_rl)} symbols khng trong RL Agent: {list(symbols_not_in_rl)}")
+                logging.info(f"[RL Fallback] Check {len(symbols_not_in_rl)} active symbols khng trong RL Agent: {list(symbols_not_in_rl)}")
+                print(f"   [RL Fallback] Check {len(symbols_not_in_rl)} active symbols khng trong RL Agent: {list(symbols_not_in_rl)}")
                 for symbol in symbols_not_in_rl:
+                    # CRITICAL FIX: Double-check that symbol is still active
+                    if symbol not in self.active_symbols:
+                        print(f"   [RL Fallback] {symbol}: No longer active, skipping")
+                        continue
+                    
                     # Check market status before processing - Skip closed markets entirely
                     if not is_market_open(symbol):
                         print(f"   [RL Fallback] {symbol}: Market closed, skipping fallback analysis")
@@ -18751,20 +18900,76 @@ class EnhancedTradingBot:
             else:
                 print(f"   [RL Strategy] All active symbols are in RL Agent")
 
-            # Ensure all active symbols are processed consistently
+            # CRITICAL FIX: Ensure all active symbols are processed consistently
             processed_symbols = set()
             for task in tasks:
                 if hasattr(task, 'symbol'):
                     processed_symbols.add(task.symbol)
+            
+            # CRITICAL FIX: Process ALL active symbols that weren't processed yet
+            unprocessed_active_symbols = self.active_symbols - processed_symbols
+            if unprocessed_active_symbols:
+                logger.warning(f"[RL Strategy] {len(unprocessed_active_symbols)} active symbols not processed: {list(unprocessed_active_symbols)}")
+                print(f"   [RL Strategy] Processing {len(unprocessed_active_symbols)} unprocessed active symbols: {list(unprocessed_active_symbols)}")
+                
+                for symbol in unprocessed_active_symbols:
+                    try:
+                        # Check market status before processing
+                        if not is_market_open(symbol):
+                            print(f"   [RL Strategy] {symbol}: Market closed, skipping")
+                            continue
+                        
+                        # Get data for unprocessed symbol
+                        df_features = live_data_cache.get(symbol)
+                        if df_features is None or len(df_features) < 100:
+                            df_features = self.data_manager.create_enhanced_features(symbol)
+                        
+                        if df_features is not None and len(df_features) >= 100:
+                            # Use Master Agent for unprocessed symbols
+                            print(f"   [RL Strategy] Processing unprocessed active symbol: {symbol}")
+                            logger.info(f" [Master Agent] Processing unprocessed active symbol: {symbol}")
+                            
+                            try:
+                                master_decision, master_confidence = self.master_agent_coordinator.coordinate_decision(
+                                    'trading_decision', df_features, symbol
+                                )
+                                logger.info(f" [Master Agent] Result for {symbol}: {master_decision} (confidence: {master_confidence:.2%})")
+                                print(f"   [Master Agent] Result for {symbol}: {master_decision} (confidence: {master_confidence:.2%})")
+                                
+                                # Only execute if confidence is high enough and no existing position
+                                if master_confidence > ML_CONFIG["MIN_CONFIDENCE_TRADE"] and symbol not in self.open_positions:
+                                    tasks.append(self.handle_position_logic(symbol, master_decision, master_confidence))
+                                    processed_symbols.add(symbol)
+                                    
+                            except Exception as e:
+                                logger.error(f"[Master Agent] Error analyzing {symbol}: {e}")
+                                print(f"   [Master Agent] Error analyzing {symbol}: {e}")
+                                
+                                # Fallback to ensemble model
+                                signal, confidence, _ = self.get_enhanced_signal(symbol, df_features=df_features)
+                                if signal and confidence > ML_CONFIG["MIN_CONFIDENCE_TRADE"] and symbol not in self.open_positions:
+                                    print(f"   [RL Fallback] {symbol}: {signal} (Confidence: {confidence:.2%})")
+                                    tasks.append(self.handle_position_logic(symbol, signal, confidence))
+                                    processed_symbols.add(symbol)
+                        else:
+                            print(f"   [RL Strategy] {symbol}: Insufficient data ({len(df_features) if df_features is not None else 0} candles)")
+                            
+                    except Exception as e:
+                        logger.error(f"[RL Strategy] Error processing unprocessed active symbol {symbol}: {e}")
+                        print(f"   [RL Strategy] Error processing unprocessed active symbol {symbol}: {e}")
+                        continue
             
             # Log summary of processing
             logger.info(f"[RL Strategy] Processed {len(processed_symbols)} symbols: {list(processed_symbols)}")
             logger.info(f"[RL Strategy] Active symbols: {list(self.active_symbols)}")
             logger.info(f"[RL Strategy] Symbols in RL Agent: {symbols_agent_knows}")
             
-            if len(processed_symbols) != len(self.active_symbols):
-                unprocessed = self.active_symbols - processed_symbols
-                logger.warning(f"[RL Strategy] {len(unprocessed)} symbols not processed: {list(unprocessed)}")
+            # CRITICAL FIX: Only warn about unprocessed symbols that are actually active
+            final_unprocessed = self.active_symbols - processed_symbols
+            if final_unprocessed:
+                logger.warning(f"[RL Strategy] {len(final_unprocessed)} active symbols still not processed: {list(final_unprocessed)}")
+            else:
+                logger.info(f"[RL Strategy] All active symbols successfully processed")
 
             if tasks:
                 logger.info(f"[RL Strategy] Executing {len(tasks)} trading signals...")
