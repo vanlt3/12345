@@ -7363,7 +7363,7 @@ class NewsEconomicManager:
         try:
             # Test Finhub API
             if any(isinstance(p, FinnhubProvider) and p.enabled for p in self.news_providers):
-                test_url = f"https://finhub.io/api/v1/quotesymbol=AAPL&token={API_KEYS['FINHUB']}"
+                test_url = f"https://finnhub.io/api/v1/quote?symbol=AAPL&token={API_KEYS['FINHUB']}"
                 response = requests.get(test_url, timeout=5)
                 if response.status_code == 200:
                     print("✅ [API Test] Finnhub API: Connected")
@@ -7372,7 +7372,7 @@ class NewsEconomicManager:
             
             # Test Marketaux API
             if any(isinstance(p, MarketauxProvider) and p.enabled for p in self.news_providers):
-                test_url = f"https://api.marketaux.com/v1/news/allsymbols=AAPL&api_token={API_KEYS['MARKETAUX']}"
+                test_url = f"https://api.marketaux.com/v1/news/all?symbols=AAPL&api_token={API_KEYS['MARKETAUX']}"
                 response = requests.get(test_url, timeout=5)
                 if response.status_code == 200:
                     print("✅ [API Test] Marketaux API: Connected")
@@ -7381,7 +7381,7 @@ class NewsEconomicManager:
             
             # Test NewsAPI
             if any(isinstance(p, NewsApiOrgProvider) and p.enabled for p in self.news_providers):
-                test_url = f"https://newsapi.org/v2/top-headlinescountry=us&apiKey={API_KEYS['NEWSAPI']}"
+                test_url = f"https://newsapi.org/v2/top-headlines?country=us&apiKey={API_KEYS['NEWSAPI']}"
                 response = requests.get(test_url, timeout=5)
                 if response.status_code == 200:
                     print("✅ [API Test] NewsAPI: Connected")
@@ -7390,7 +7390,7 @@ class NewsEconomicManager:
             
             # Test EODHD API
             if any(isinstance(p, EODHDProvider) and p.enabled for p in self.news_providers):
-                test_url = f"https://eodhistoricaldata.com/api/eod/AAPL.USapi_token={API_KEYS['EODHD']}&fmt=json"
+                test_url = f"https://eodhistoricaldata.com/api/eod/AAPL.US?api_token={API_KEYS['EODHD']}&fmt=json"
                 response = requests.get(test_url, timeout=5)
                 if response.status_code == 200:
                     print("✅ [API Test] EODHD API: Connected")
@@ -7457,9 +7457,15 @@ class NewsEconomicManager:
                     return []
                 elif "401" in error_msg or "Unauthorized" in error_msg:
                     logging.warning("⚠️ Trading Economics API unauthorized (401) - API key may be invalid")
+                    logging.warning("⚠️ Bot will continue without Trading Economics data")
+                    try:
+                        globals()['TRADING_ECONOMICS_AVAILABLE'] = False
+                    except:
+                        pass
                     return []
                 elif "429" in error_msg or "Too Many Requests" in error_msg:
                     logging.warning("⚠️ Trading Economic API rate limited (429) - too many requests")
+                    logging.warning("⚠️ Bot will retry later")
                     return []
                 else:
                     logging.warning(f"⚠️ Trading Economics API error: {api_error}")
@@ -13954,6 +13960,9 @@ class MasterAgent:
         self.market_state_cache = {}
         self.cache_ttl = 5.0  # 5 seconds
         
+        # Specialist agents for coordination
+        self.specialist_agents = {}
+        
         print("🧠 [MasterAgent] Initialized with production-grade policies")
     
     async def decide(self, market_state: MarketState, risk_ctx: RiskContext, 
@@ -15183,6 +15192,134 @@ class MasterAgent:
         except Exception as e:
             print(f"❌ [Master Agent] Error generating performance summary: {e}")
             return {"error": str(e)}
+    
+    def coordinate_decision(self, task_type, market_data, symbol):
+        """Decision coordination for all specialist agents"""
+        print(f"[Master Agent Coordinator] Starting coordinate_decision for {symbol}")
+        logging.info(f"[Master Agent Coordinator] Starting coordinate_decision for {symbol}")
+        
+        try:
+            # Decompose task
+            subtasks = self.decompose_task(task_type, market_data)
+            print(f" [Master Agent Coordinator] Decomposed tasks: {list(subtasks.keys())}")
+            
+            # Get agent opinions
+            agent_opinions = {}
+            agent_confidences = {}
+            
+            for subtask_type, subtask_data in subtasks.items():
+                if subtask_type in self.specialist_agents:
+                    agent = self.specialist_agents[subtask_type]
+                    try:
+                        opinion, confidence = agent.analyze(subtask_data, symbol)
+                        agent_opinions[subtask_type] = opinion
+                        agent_confidences[subtask_type] = confidence
+                        print(f" [Master Agent Coordinator] {subtask_type}: {opinion} (confidence: {confidence:.2%})")
+                    except Exception as e:
+                        print(f" [Master Agent Coordinator] Error in {subtask_type}: {e}")
+                        agent_opinions[subtask_type] = "HOLD"
+                        agent_confidences[subtask_type] = 0.5
+            
+            # Combine opinions using weighted voting
+            final_decision, final_confidence = self.combine_opinions(agent_opinions, agent_confidences)
+            
+            # Update performance tracking
+            self._update_agent_performance(agent_opinions, agent_confidences, symbol)
+            
+            return final_decision, final_confidence
+            
+        except Exception as e:
+            print(f"[Master Agent Coordinator] Li in coordinate_decision: {e}")
+            logging.error(f"Error in Master Agent coordination: {e}")
+            return "HOLD", 0.5
+    
+    def decompose_task(self, task_type, market_data):
+        """Chia nh task thnh subtasks cho specialist agents"""
+        subtasks = {}
+        
+        if task_type == 'trading_decision':
+            # Technical analysis subtask
+            if hasattr(market_data, 'columns') and len(market_data) > 0:
+                technical_data = market_data[['close', 'high', 'low', 'volume']].tail(100)
+                subtasks['technical'] = technical_data
+            
+            # Market sentiment subtask
+            subtasks['sentiment'] = {
+                'price_data': market_data.tail(50) if hasattr(market_data, 'tail') else market_data,
+                'volatility': market_data['close'].std() if hasattr(market_data, 'close') else 0.01
+            }
+            
+            # Risk assessment subtask
+            subtasks['risk'] = {
+                'price_data': market_data.tail(20) if hasattr(market_data, 'tail') else market_data,
+                'current_price': market_data['close'].iloc[-1] if hasattr(market_data, 'close') else 1.0
+            }
+        
+        return subtasks
+    
+    def combine_opinions(self, agent_opinions, agent_confidences):
+        """Combine multiple agent opinions into final decision"""
+        try:
+            # Weighted voting system
+            buy_weight = 0
+            sell_weight = 0
+            hold_weight = 0
+            total_weight = 0
+            
+            for agent_type, opinion in agent_opinions.items():
+                confidence = agent_confidences.get(agent_type, 0.5)
+                weight = confidence
+                
+                if opinion.upper() in ['BUY', 'LONG']:
+                    buy_weight += weight
+                elif opinion.upper() in ['SELL', 'SHORT']:
+                    sell_weight += weight
+                else:
+                    hold_weight += weight
+                
+                total_weight += weight
+            
+            # Normalize weights
+            if total_weight > 0:
+                buy_weight /= total_weight
+                sell_weight /= total_weight
+                hold_weight /= total_weight
+            
+            # Determine final decision
+            if buy_weight > sell_weight and buy_weight > hold_weight:
+                final_decision = "BUY"
+                final_confidence = buy_weight
+            elif sell_weight > buy_weight and sell_weight > hold_weight:
+                final_decision = "SELL"
+                final_confidence = sell_weight
+            else:
+                final_decision = "HOLD"
+                final_confidence = hold_weight
+            
+            return final_decision, final_confidence
+            
+        except Exception as e:
+            print(f"[Master Agent Coordinator] Error combining opinions: {e}")
+            return "HOLD", 0.5
+    
+    def _update_agent_performance(self, agent_opinions, agent_confidences, symbol):
+        """Update performance tracking for specialist agents"""
+        try:
+            if symbol not in self.performance_metrics:
+                self.performance_metrics[symbol] = {
+                    'total_decisions': 0,
+                    'tp_hits': 0,
+                    'sl_hits': 0,
+                    'avg_return': 0,
+                    'win_rate': 0,
+                    'avg_rr_achieved': 0
+                }
+            
+            # Update decision count
+            self.performance_metrics[symbol]['total_decisions'] += 1
+            
+        except Exception as e:
+            print(f"[Master Agent Coordinator] Error updating performance: {e}")
 
 class RuleBasedStrategy:
     """Rule-based trading strategy"""
@@ -16293,6 +16430,7 @@ class EnhancedTradingBot:
                 'timestamp': pd.Timestamp.now(),
                 'final_decision': final_decision,
                 'final_confidence': final_confidence,
+                'decision_consistency': 1.0,  # Default consistency for enhanced feedback
                 'market_data_available': market_data is not None and not market_data.empty if hasattr(market_data, 'empty') else market_data is not None
             }
             
@@ -16499,7 +16637,7 @@ class EnhancedTradingBot:
                 trades_query = """
                     SELECT pips, entry_price, exit_price, id, closed_at
                     FROM trades 
-                    WHERE symbol =  AND exit_price IS NOT NULL
+                    WHERE symbol = ? AND exit_price IS NOT NULL
                     ORDER BY id DESC
                     LIMIT 100
                 """
@@ -16507,7 +16645,7 @@ class EnhancedTradingBot:
                 trades_query = """
                     SELECT pips, entry_price, exit_price, opened_at, closed_at
                     FROM trades 
-                    WHERE symbol =  AND exit_price IS NOT NULL
+                    WHERE symbol = ? AND exit_price IS NOT NULL
                     ORDER BY opened_at DESC
                     LIMIT 100
                 """
@@ -17648,7 +17786,9 @@ class EnhancedTradingBot:
             # --- BU C 3: Check MODEL V TI P T C LOGIC ---
             if model_data is None:
                 logging.warning(f"get_enhanced_signal: No suitable model found for {symbol} (Regime: {current_regime})")
-                return None, 0.0, None
+                logging.info(f"Available models for {symbol}: trending={symbol in self.trending_models}, ranging={symbol in self.ranging_models}")
+                # Return default HOLD signal instead of None
+                return "HOLD", 0.5, None
 
             model = model_data.get("ensemble")
             feature_columns = model_data.get("feature_columns")
