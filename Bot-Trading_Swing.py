@@ -18280,11 +18280,11 @@ class EnhancedTradingBot:
                 
                 selected_features = observation_vector[unique_indices[:target_size]]
             
-            logger.info(f"[RL Strategy] Selected {len(selected_features)} features from {current_size} using intelligent selection")
+            logging.info(f"[RL Strategy] Selected {len(selected_features)} features from {current_size} using intelligent selection")
             return selected_features.astype(np.float32)
             
         except Exception as e:
-            logger.error(f"Error in intelligent feature selection: {e}")
+            logging.error(f"Error in intelligent feature selection: {e}")
             # Fallback: simple truncation keeping first target_size features
             return observation_vector[:target_size].astype(np.float32)
 
