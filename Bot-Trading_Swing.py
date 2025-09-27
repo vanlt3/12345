@@ -379,6 +379,11 @@ API_CONFIGS: Dict[str, APIConfig] = {
         api_key='68bafd7d44a7f0.25202650',
         base_url='https://eodhistoricaldata.com/api',
         rate_limit=20
+    ),
+    'ALPHAVANTAGE': APIConfig(
+        api_key='YOUR_ALPHAVANTAGE_KEY',  # Add your Alpha Vantage key here
+        base_url='https://www.alphavantage.co/query',
+        rate_limit=5
     )
 }
 
@@ -3827,7 +3832,7 @@ class FinnhubProvider(PriceProvider):
     """Finnhub price provider"""
     
     def __init__(self, api_key: str = None):
-        self.api_key = api_key or os.getenv('FINNHUB_API_KEY')
+        self.api_key = api_key or os.getenv('FINNHUB_API_KEY') or API_CONFIGS['FINHUB'].api_key
         self.base_url = "https://finnhub.io/api/v1"
         self.timeout = 1.2
         self.session = None
@@ -3929,7 +3934,7 @@ class AlphaVantageProvider(PriceProvider):
     """Alpha Vantage price provider"""
     
     def __init__(self, api_key: str = None):
-        self.api_key = api_key or os.getenv('ALPHAVANTAGE_API_KEY')
+        self.api_key = api_key or os.getenv('ALPHAVANTAGE_API_KEY') or API_CONFIGS['ALPHAVANTAGE'].api_key
         self.base_url = "https://www.alphavantage.co/query"
         self.timeout = 1.0
         self.session = None
@@ -3986,7 +3991,7 @@ class EODHDProvider(PriceProvider):
     """EODHD price provider (optional)"""
     
     def __init__(self, api_key: str = None):
-        self.api_key = api_key or os.getenv('EODHD_API_KEY')
+        self.api_key = api_key or os.getenv('EODHD_API_KEY') or API_CONFIGS['EODHD'].api_key
         self.base_url = "https://eodhistoricaldata.com/api"
         self.timeout = 1.0
         self.session = None
@@ -4600,9 +4605,11 @@ def print_startup_summary(config: Config):
     
     # API Keys status (redacted)
     api_keys = {
-        'FINNHUB_API_KEY': '***' if os.getenv('FINNHUB_API_KEY') else 'Not Set',
-        'ALPHAVANTAGE_API_KEY': '***' if os.getenv('ALPHAVANTAGE_API_KEY') else 'Not Set',
-        'EODHD_API_KEY': '***' if os.getenv('EODHD_API_KEY') else 'Not Set'
+        'FINNHUB_API_KEY': '***' if (os.getenv('FINNHUB_API_KEY') or API_CONFIGS['FINHUB'].api_key != 'YOUR_FINNHUB_KEY') else 'Not Set',
+        'MARKETAUX_API_KEY': '***' if (os.getenv('MARKETAUX_API_KEY') or API_CONFIGS['MARKETAUX'].api_key != 'YOUR_MARKETAUX_KEY') else 'Not Set',
+        'NEWSAPI_API_KEY': '***' if (os.getenv('NEWSAPI_API_KEY') or API_CONFIGS['NEWSAPI'].api_key != 'YOUR_NEWSAPI_KEY') else 'Not Set',
+        'EODHD_API_KEY': '***' if (os.getenv('EODHD_API_KEY') or API_CONFIGS['EODHD'].api_key != 'YOUR_EODHD_KEY') else 'Not Set',
+        'ALPHAVANTAGE_API_KEY': '***' if (os.getenv('ALPHAVANTAGE_API_KEY') or API_CONFIGS['ALPHAVANTAGE'].api_key != 'YOUR_ALPHAVANTAGE_KEY') else 'Not Set'
     }
     
     print(f"🔑 API Keys:")
