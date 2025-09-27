@@ -8576,7 +8576,7 @@ class LLMSentimentAnalyzer:
 
         try:
             genai.configure(api_key=api_key)
-            self.model = genai.GenerativeModel('gemini-1.5-flash-latest')
+            self.model = genai.GenerativeModel('gemini-1.5-flash')
             logging.info("Successfully connected to Gemini API.")
             print("[LLMSentimentAnalyzer] Gemini API connection established")
         except Exception as e:
