@@ -7035,7 +7035,7 @@ class FinnhubNewsProvider(NewsProvider):
 
 # TM V THAY THTON BL P this
 
-class EODHDProvider(NewsProvider):
+class EODHDNewsProvider(NewsProvider):
     def __init__(self, api_key):
         super().__init__(api_key)
         if self.enabled:
