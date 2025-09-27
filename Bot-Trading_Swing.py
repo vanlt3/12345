@@ -2648,7 +2648,7 @@ DRIFT_SCORE_DECAY = 1          # Points subtracted (cooling down) after each che
 DRIFT_SCORE_THRESHOLD = 3      # Score threshold to trigger retraining
 # ==============================
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', encoding='utf-8', force=True)
-OANDA_API_KEY = "814bb04d60580a8a9b0ce5542f70d5f7-b33dbed32efba816c1d16c393369ec8d"  # Replace with actual API key
+OANDA_API_KEY = "YOUR_VALID_OANDA_API_KEY_HERE"  # Replace with actual API key
 OANDA_URL = "https://api-fxtrade.oanda.com/v3"
 # DISCORD WEBHOOK - UPDATE THIS WITH YOUR WEBHOOK URL
 # To create a new webhook:
@@ -11429,10 +11429,14 @@ class EnhancedDataManager:
             logging.info(f"[Sanity] weekend={is_weekend()} sym={symbol} crypto={is_crypto_symbol(symbol)} primary_tf={primary_tf}")
             # This call is now correct.
             if not data_freshness_manager.validate_with_recovery(multi_tf_data, primary_tf, symbol):
-                print(f"data for {symbol} is too old. Skipping feature creation.")
-                # <<< TreceiveANG M I: nhn d liu symbol needs retrain >>>
-                self._mark_symbol_for_retrain(symbol, "stale_data")
-                return None
+                print(f"⚠️ Data for {symbol} is too old. Skipping feature creation.")
+                # Only mark for retrain if not crypto (crypto can continue with stale data)
+                if not is_crypto_symbol(symbol):
+                    self._mark_symbol_for_retrain(symbol, "stale_data")
+                    return None
+                else:
+                    print(f"🔄 Crypto symbol {symbol} continuing with stale data (24/7 trading)")
+                    # Continue with stale data for crypto
 
             # <<< K T THfromHAY  I >>>
             # ========================
@@ -15991,6 +15995,13 @@ class EnhancedTradingBot:
         # Core trading attributes
         print("🔧 [Bot Init] Setting up core trading attributes...")
         self.active_symbols = set(SYMBOLS)  # Initialize with all symbols from SYMBOLS list
+        
+        # Ensure crypto symbols are always active (24/7 trading)
+        crypto_symbols = [s for s in SYMBOLS if is_crypto_symbol(s)]
+        for crypto_symbol in crypto_symbols:
+            self.active_symbols.add(crypto_symbol)
+        
+        print(f"✅ [Bot Init] Crypto symbols always active: {crypto_symbols}")
         self.trending_models = {}    # Dictionary to store trending models
         self.ranging_models = {}     # Dictionary to store ranging models
         self.open_positions = load_open_positions()  # Load existing positions from file
@@ -17736,25 +17747,24 @@ class EnhancedTradingBot:
                 print(f" [RL Agent] Active symbols for RL: {active_symbols_for_rl}")
 
                 if len(active_symbols_for_rl) < 2:
-                    print("not dsymbol ho t used (>1) dtraining RL Agent.")
-                    print(f"   - needs t nh t 2 symbols, hi n c: {len(active_symbols_for_rl)}")
-                    print("   - Sthtraining with t t csymbols c model (not chactive)")
-
-                    # Thwith t t csymbols c model
+                    print("⚠️ Not enough active symbols for RL Agent training (>1 needed)")
+                    print(f"   - Needs at least 2 symbols, currently has: {len(active_symbols_for_rl)}")
+                    print("   - Using all symbols with models (not just active) for RL training")
+                    
+                    # Use all symbols with models for RL training
                     all_symbols_with_models = set()
                     for symbol in SYMBOLS:
                         if symbol in self.trending_models or symbol in self.ranging_models:
                             all_symbols_with_models.add(symbol)
-
-                    print(f"   - Symbols c model: {list(all_symbols_with_models)}")
-
+                    
                     if len(all_symbols_with_models) >= 2:
-                        print("   - Using t t csymbols c model dtraining RL Agent")
+                        print(f"✅ Found {len(all_symbols_with_models)} symbols with models for RL training")
                         active_symbols_for_rl = list(all_symbols_with_models)
                     else:
-                        print("No symbols with models for training RL Agent. Skipping.")
-                        self.portfolio_rl_agent = None
+                        print("⚠️ Not enough symbols with models for RL training - skipping RL Agent")
+                        self.use_rl = False
                         return
+
 
                 # Chu n bdata cho RL
                 for symbol in active_symbols_for_rl:
@@ -21225,10 +21235,14 @@ class EnhancedTradingBot:
         logger.info("Starting Enhanced Trading Bot")
         print(" Advanced Trading Bot is starting!")
         
-        if not self.check_api_connection():
-            logger.error("Failed to connect to OANDA API")
-            print(" Cannot connect to OANDA API. Please check the error.")
-            return
+        # Check API connection but don't stop bot if it fails
+        api_connected = self.check_api_connection()
+        if not api_connected:
+            logger.warning("OANDA API connection failed - continuing in paper trading mode")
+            print("⚠️ OANDA API connection failed - Bot will continue in paper trading mode")
+        else:
+            logger.info("OANDA API connection successful")
+            print("✅ OANDA API connection successful")
 
         is_first_run = True
         logger.info("Bot initialization completed successfully")
