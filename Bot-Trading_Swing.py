@@ -31,6 +31,58 @@ os.environ['LC_ALL'] = 'en_US.UTF-8'
 
 print("🔧 [Encoding] UTF-8 encoding configured successfully")
 
+# Text encoding fix function
+def fix_text_encoding(text):
+    """Fix common Vietnamese text encoding issues"""
+    if not isinstance(text, str):
+        return text
+    
+    replacements = {
+        'd duc gi': 'được gì',
+        'd u c': 'được',
+        't t c': 'tất cả',
+        'khng': 'không',
+        'from': 'từ',
+        'used': 'sử dụng',
+        'tht': 'thật',
+        'nhu': 'như',
+        'cho': 'cho',
+        'v': 'và',
+        'kv': 'có thể',
+        'tang': 'tăng',
+        'gi m': 'giảm',
+        'fromhtang': 'tăng',
+        'fromng': 'từng',
+        'Li': 'Lỗi',
+        'c p': 'cập',
+        'nh t': 'nhất',
+        'quan': 'quan',
+        'trong': 'trong',
+        'có': 'có',
+        'không': 'không',
+        'được': 'được',
+        'tất cả': 'tất cả',
+        'từ': 'từ',
+        'sử dụng': 'sử dụng',
+        'thật': 'thật',
+        'như': 'như',
+        'cho': 'cho',
+        'và': 'và',
+        'có thể': 'có thể',
+        'tăng': 'tăng',
+        'giảm': 'giảm',
+        'Lỗi': 'Lỗi',
+        'cập': 'cập',
+        'nhất': 'nhất',
+        'quan': 'quan',
+        'trong': 'trong'
+    }
+    
+    for old, new in replacements.items():
+        text = text.replace(old, new)
+    
+    return text
+
 # ==================================================
 # RUNTIME HYGIENE FOR COLAB / LOW-SPEC
 # ==================================================
@@ -15357,16 +15409,16 @@ class MasterAgent:
             # Technical analysis subtask
             if hasattr(market_data, 'columns') and len(market_data) > 0:
                 technical_data = market_data[['close', 'high', 'low', 'volume']].tail(100)
-                subtasks['technical'] = technical_data
+                subtasks['trend_analyzer'] = technical_data
             
             # Market sentiment subtask
-            subtasks['sentiment'] = {
+            subtasks['sentiment_analyzer'] = {
                 'price_data': market_data.tail(50) if hasattr(market_data, 'tail') else market_data,
                 'volatility': market_data['close'].std() if hasattr(market_data, 'close') else 0.01
             }
             
             # Risk assessment subtask
-            subtasks['risk'] = {
+            subtasks['risk_manager'] = {
                 'price_data': market_data.tail(20) if hasattr(market_data, 'tail') else market_data,
                 'current_price': market_data['close'].iloc[-1] if hasattr(market_data, 'close') else 1.0
             }
@@ -16036,6 +16088,8 @@ class EnhancedTradingBot:
         # Create a default config for MasterAgent initialization
         default_config = Config()
         self.master_agent_coordinator = MasterAgent(default_config)
+        # Initialize specialist agents
+        self.master_agent_coordinator.initialize_specialist_agents()
         print("✅ [Bot Init] Master Agent initialized successfully")
         
         # Advanced Ensemble System
@@ -16769,7 +16823,17 @@ class EnhancedTradingBot:
             trades = cursor.execute(trades_query, (symbol,)).fetchall()
             
             if len(trades) < 10:  # needs t nh t 10 trades ddnh gi
-                return "poor", f"Insufficient data: {len(trades)} trades"
+                # Return neutral rating for insufficient data instead of "poor"
+                return "insufficient_data", {
+                    "win_rate": 0,
+                    "profit_factor": 0,
+                    "max_drawdown": 0,
+                    "avg_trade": 0,
+                    "consecutive_losses": 0,
+                    "recovery_factor": 0,
+                    "total_trades": len(trades),
+                    "message": f"Insufficient data: {len(trades)} trades (need at least 10)"
+                }
             
             # Calculate metrics
             pips_list = [trade[0] for trade in trades]
@@ -16888,6 +16952,10 @@ class EnhancedTradingBot:
                     current_weight = SYMBOL_ALLOCATION[symbol]["weight"]
                     SYMBOL_ALLOCATION[symbol]["weight"] = current_weight * 0.5
                     print(f"    Reducing weight from {current_weight} to {SYMBOL_ALLOCATION[symbol]['weight']}")
+                    
+            elif performance_rating == "insufficient_data":
+                # Keep current configuration for insufficient data
+                print(f"   {symbol}: Insufficient trade data - maintaining current configuration")
                 
         except Exception as e:
             print(f"Li adjustment strategy cho {symbol}: {e}")
@@ -16923,7 +16991,7 @@ class EnhancedTradingBot:
                 # More lenient performance criteria - only disable if very poor performance AND sufficient trades
                 should_disable = (
                     rating == "poor" and 
-                    total_trades >= 5 and  # Need at least 5 trades to make a decision
+                    total_trades >= 10 and  # Need at least 10 trades to make a decision
                     win_rate < 0.15 and     # Win rate below 15%
                     profit_factor < 0.8    # Profit factor below 0.8
                 )
@@ -16955,21 +17023,24 @@ class EnhancedTradingBot:
                         "Max Drawdown": f"{max_drawdown:.2%}"
                     }
                     self.send_discord_alert(message, "WARNING", "HIGH", performance_data)
-                elif rating == "poor" and total_trades < 5:
+                elif rating == "poor" and total_trades < 10:
                     logger.info(f"Keeping {symbol} active despite poor rating - insufficient trades ({total_trades})")
                     print(f"   {symbol}: Poor performance but insufficient trades ({total_trades}) - keeping active")
+                elif rating == "insufficient_data":
+                    logger.info(f"Keeping {symbol} active - insufficient trade data ({total_trades})")
+                    print(f"   {symbol}: Insufficient trade data ({total_trades}) - keeping active")
             
             if disabled_symbols:
                 print(f" [Performance Monitor]  t t {len(disabled_symbols)} symbols: {disabled_symbols}")
             else:
-                print("[Performance Monitor] T t csymbols d u c performance ch p receive d")
+                print(fix_text_encoding("[Performance Monitor] Tất cả symbols đã được performance check completed"))
                 
         except Exception as e:
-            print(f"Li in auto_disable_poor_performers: {e}")
+            print(fix_text_encoding(f"Lỗi in auto_disable_poor_performers: {e}"))
 
     def check_and_adjust_performance(self):
         """
-        Check v adjustment performance of t t csymbols
+        Check và adjustment performance của tất cả symbols
         """
         try:
             print(" [Performance Check] Starting performance check...")
@@ -16990,7 +17061,7 @@ class EnhancedTradingBot:
             self.auto_disable_poor_performers()
             
         except Exception as e:
-            print(f"Li in check_and_adjust_performance: {e}")
+            print(fix_text_encoding(f"Lỗi in check_and_adjust_performance: {e}"))
 
     def get_optimized_config(self, symbol: str) -> Dict[str, Any]:
         """L y c configuration t i uu cho symbol texperiment results"""
@@ -17498,6 +17569,7 @@ class EnhancedTradingBot:
             print(f"Processing models for symbol: {symbol}")
 
             # <<< BU C 3: TCH H P Function Check GIGIAO dH >>>
+            # Check market status and skip if market is closed (except for crypto)
             if not is_market_open(symbol):
                 # Debug: Log th i gian v ngy dhi u t i sao thtru ng used
                 now_utc = datetime.now(pytz.UTC)
@@ -17507,6 +17579,12 @@ class EnhancedTradingBot:
                 print(f"   [Market Debug] UTC: {now_utc.strftime('%Y-%m-%d %H:%M:%S')} ({weekday_names[now_utc.weekday()]})")
                 print(f"   [Market Debug] Local: {now_local.strftime('%Y-%m-%d %H:%M:%S')} ({weekday_names[now_local.weekday()]})")
                 print(f"   [Market Debug] is_weekend(): {is_weekend()}, is_crypto_symbol({symbol}): {is_crypto_symbol(symbol)}")
+                
+                # Remove from active symbols if not crypto to prevent processing later
+                if not is_crypto_symbol(symbol):
+                    self.active_symbols.discard(symbol)
+                    print(f"   [Market Status] Removed {symbol} from active symbols due to market closure")
+                
                 continue # Chuyn sang symbol tip theo
             # <<< K T THfromCH H P >>>
 
@@ -18325,31 +18403,31 @@ class EnhancedTradingBot:
             logger.debug(f" [RL Strategy] Expected observation shape: {expected_shape}")
             logger.debug(f" [RL Strategy] currentobservation shape: {final_live_observation.shape}")
 
-            # So snh v fix l i shape if needs
+            # Fix observation shape mismatch with proper feature alignment
             if final_live_observation.shape != expected_shape:
                 current_size = final_live_observation.shape[0]
                 expected_size = expected_shape[0]
                 
-                logger.info(f" [RL Strategy] Adjusting observation shape: {current_size} -> {expected_size}")
-                logging.info(f"Adjusting observation shape: {current_size} -> {expected_size}")
+                logger.warning(f" [RL Strategy] Observation shape mismatch detected: {current_size} -> {expected_size}")
+                logging.warning(f"Observation shape mismatch: {current_size} -> {expected_size}")
 
                 if current_size < expected_size:
-                    # Tch ph n global states (lun l 4 ph n tcu)
-                    obs_without_global = final_live_observation[:-4]
-                    global_s = final_live_observation[-4:]
-
-                    # T o padding cOrc symbol bthi u
-                    padding_size = (expected_size - 4) - len(obs_without_global)
+                    # Pad with zeros to match expected size
+                    padding_size = expected_size - current_size
                     padding = np.zeros(padding_size)
-
-                    # Ghp l i observation used tht 
-                    padded_obs = np.concatenate([obs_without_global, padding, global_s])
-                    final_live_observation = padded_obs.astype(np.float32)
+                    final_live_observation = np.concatenate([final_live_observation, padding]).astype(np.float32)
                     logger.info(f"[RL Strategy] Successfully padded observation to {final_live_observation.shape}")
                     logging.info(f"Successfully padded observation to {final_live_observation.shape}")
                 else:
-                    # Tru ng h p observation l n hon expected - from b t
-                    final_live_observation = final_live_observation[:expected_size]
+                    # Truncate to match expected size - preserve most important features
+                    # Keep first part (symbol features) and last part (global states)
+                    if expected_size >= 4:  # Ensure we have space for global states
+                        symbol_features = final_live_observation[:expected_size-4]
+                        global_states = final_live_observation[-4:]
+                        final_live_observation = np.concatenate([symbol_features, global_states]).astype(np.float32)
+                    else:
+                        final_live_observation = final_live_observation[:expected_size]
+                    
                     logger.info(f"[RL Strategy] Successfully truncated observation to {final_live_observation.shape}")
                     logging.info(f"Successfully truncated observation to {final_live_observation.shape}")
 
@@ -18564,6 +18642,11 @@ class EnhancedTradingBot:
                 logging.info(f"[RL Fallback] Check {len(symbols_not_in_rl)} symbols khng trong RL Agent: {list(symbols_not_in_rl)}")
                 print(f"   [RL Fallback] Check {len(symbols_not_in_rl)} symbols khng trong RL Agent: {list(symbols_not_in_rl)}")
                 for symbol in symbols_not_in_rl:
+                    # Check market status before processing
+                    if not is_market_open(symbol):
+                        print(f"   [RL Fallback] {symbol}: Market closed, skipping fallback analysis")
+                        continue
+                        
                     try:
                         print(f"   [RL Fallback] Fetching data for {symbol}...")
                         # Using Ensemble strategy for these symbols
@@ -24611,6 +24694,8 @@ if __name__ == "__main__":
         
         # Initialize master agent
         master_agent = MasterAgent(config)
+        # Initialize specialist agents
+        master_agent.initialize_specialist_agents()
         print("🧠 [Main] Master agent initialized")
         
         # Initialize trading bot with new components
